@@ -11,3 +11,4 @@ wheels/
 
 # Environmental variables
 .env
+.env.docker
