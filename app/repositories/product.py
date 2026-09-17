@@ -39,3 +39,21 @@ class ProductRepository:
     def delete(self, product: Product) -> None:
         self.session.delete(product)
         self.session.flush()
+
+    def update(
+        self,
+        product: Product,
+        name: str,
+        description: str | None,
+        price: float,
+        owner_id: int,
+        category_id: int,
+    ) -> Product:
+        product.name = name
+        product.description = description
+        product.price = price
+        product.owner_id = owner_id
+        product.category_id = category_id
+
+        self.session.flush()
+        return product
