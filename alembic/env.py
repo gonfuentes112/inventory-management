@@ -4,9 +4,9 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from app.db.database import Base
-from app.models.user import User
-from app.models.product import Product
-from app.models.category import Category
+from app.models.user import User  # type: ignore
+from app.models.product import Product  # type: ignore
+from app.models.category import Category  # type: ignore
 
 from app.core.config import settings
 
