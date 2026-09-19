@@ -45,5 +45,14 @@ class ProductService:
             category_id=data.category_id,
         )
 
-    def delete_product(self, product: Product) -> None:
-        return self.repository.delete(product)
+    def delete_product(
+        self,
+        product_id: int,
+    ) -> bool:
+        product = self.repository.get_by_id(product_id)
+
+        if product is None:
+            return False
+
+        self.repository.delete(product)
+        return True
