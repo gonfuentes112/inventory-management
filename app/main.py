@@ -4,8 +4,11 @@ from sqlalchemy import text
 from app.core.config import settings
 from app.db.database import engine
 
+from app.api.products import router as product_router
 
 app = FastAPI(title=settings.app_name)
+
+app.include_router(product_router)
 
 
 @app.get("/")

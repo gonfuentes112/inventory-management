@@ -26,7 +26,16 @@ class ProductService:
     def get_products(self) -> list[Product]:
         return self.repository.get_all()
 
-    def update_product(self, product: Product, data: ProductUpdate) -> Product:
+    def update_product(
+        self,
+        product_id: int,
+        data: ProductUpdate,
+    ) -> Product | None:
+        product = self.repository.get_by_id(product_id)
+
+        if product is None:
+            return None
+
         return self.repository.update(
             product,
             name=data.name,
