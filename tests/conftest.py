@@ -1,5 +1,5 @@
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import Session
 
 from app.db.database import Base
@@ -11,13 +11,17 @@ from collections.abc import Generator
 
 
 @pytest.fixture
-def db_session() -> Generator[Session, None, None]:
+def db_engine() -> Generator[Engine, None, None]:
     engine = create_engine("sqlite:///:memory:")
-
     Base.metadata.create_all(engine)
 
-    with Session(engine) as session:
-        yield session
+    yield engine
 
     Base.metadata.drop_all(engine)
     engine.dispose()
+
+
+@pytest.fixture
+def db_session(db_engine: Engine) -> Generator[Session, None, None]:
+    with Session(db_engine) as session:
+        yield session
