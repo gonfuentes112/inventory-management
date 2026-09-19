@@ -61,3 +61,24 @@ def test_product_response_from_orm():
     assert response.price == 1200.00
     assert response.owner_id == 1
     assert response.category_id == 1
+
+
+from app.services.product import ProductUpdate
+
+
+def test_product_update_schema():
+    product = ProductUpdate(
+        price=999.99,
+    )
+
+    assert product.name is None
+    assert product.description is None
+    assert product.price == 999.99
+    assert product.category_id is None
+
+
+def test_product_update_rejects_negative_price():
+    with pytest.raises(ValidationError):
+        ProductUpdate(
+            price=-100,
+        )

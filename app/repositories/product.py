@@ -43,17 +43,27 @@ class ProductRepository:
     def update(
         self,
         product: Product,
-        name: str,
+        name: str | None,
         description: str | None,
-        price: float,
-        owner_id: int,
-        category_id: int,
+        price: float | None,
+        owner_id: int | None,
+        category_id: int | None,
     ) -> Product:
-        product.name = name
-        product.description = description
-        product.price = price
-        product.owner_id = owner_id
-        product.category_id = category_id
+        if name is not None:
+            product.name = name
+
+        if description is not None:
+            product.description = description
+
+        if price is not None:
+            product.price = price
+
+        if owner_id is not None:
+            product.owner_id = owner_id
+
+        if category_id is not None:
+            product.category_id = category_id
 
         self.session.flush()
+
         return product

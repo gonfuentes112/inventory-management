@@ -18,3 +18,11 @@ class ProductResponse(BaseModel):
     category_id: int
 
     model_config = {"from_attributes": True}
+
+
+class ProductUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=200)
+    description: str | None = None
+    price: float | None = Field(default=None, ge=0)
+    owner_id: int | None = None
+    category_id: int | None = None
