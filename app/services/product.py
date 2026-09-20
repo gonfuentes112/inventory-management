@@ -9,16 +9,21 @@ from app.schemas.product import ProductCreate, ProductUpdate
 
 class ProductService:
     def __init__(self, session: Session) -> None:
+        self.session = session
         self.repository = ProductRepository(session)
 
     def create_product(self, data: ProductCreate) -> Product:
-        return self.repository.create(
+        product = self.repository.create(
             name=data.name,
             description=data.description,
             price=data.price,
             owner_id=data.owner_id,
             category_id=data.category_id,
         )
+        self.session.commit()
+        self.session.refresh(product)
+
+        return product
 
     def get_product(self, product_id: int) -> Product | None:
         return self.repository.get_by_id(product_id)
@@ -36,7 +41,7 @@ class ProductService:
         if product is None:
             return None
 
-        return self.repository.update(
+        self.repository.update(
             product,
             name=data.name,
             description=data.description,
@@ -44,6 +49,10 @@ class ProductService:
             owner_id=data.owner_id,
             category_id=data.category_id,
         )
+        self.session.commit()
+        self.session.refresh(product)
+
+        return product
 
     def delete_product(
         self,
@@ -55,4 +64,5 @@ class ProductService:
             return False
 
         self.repository.delete(product)
+        self.session.commit()
         return True
