@@ -5,9 +5,14 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 from app.services.product import ProductService
+from app.services.category import CategoryService
 
 
 def get_product_service(
     db: Annotated[Session, Depends(get_db)],
 ) -> ProductService:
     return ProductService(db)
+
+
+def get_category_service(db: Annotated[Session, Depends(get_db)]) -> CategoryService:
+    return CategoryService(db)
