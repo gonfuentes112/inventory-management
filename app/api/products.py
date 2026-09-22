@@ -6,6 +6,8 @@ from app.api.dependencies import get_product_service
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.services.product import ProductService
 
+from app.api.dependencies import CurrentUser, get_product_service
+
 router = APIRouter(prefix="/products", tags=["products"])
 
 ProductServiceDependency = Annotated[
@@ -22,6 +24,7 @@ ProductServiceDependency = Annotated[
 def create_product(
     data: ProductCreate,
     service: ProductServiceDependency,
+    current_user: CurrentUser,
 ):
     try:
         return service.create_product(data)

@@ -3,8 +3,10 @@ from app.models.category import Category
 from app.models.user import User
 
 
-def test_create_product(client: TestClient, test_data: dict[str, User | Category]):
-    response = client.post(
+def test_create_product(
+    authenticated_client: TestClient, test_data: dict[str, User | Category]
+):
+    response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -23,8 +25,25 @@ def test_create_product(client: TestClient, test_data: dict[str, User | Category
     assert data["price"] == 1200.00
 
 
-def test_get_product(client: TestClient, test_data: dict[str, User | Category]):
-    create_response = client.post(
+def test_create_product_requires_authentication(client: TestClient):
+    response = client.post(
+        "/products",
+        json={
+            "name": "Laptop",
+            "description": "Development laptop",
+            "price": 1200.00,
+            "owner_id": 1,
+            "category_id": 1,
+        },
+    )
+
+    assert response.status_code == 401
+
+
+def test_get_product(
+    authenticated_client: TestClient, test_data: dict[str, User | Category]
+):
+    create_response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -37,7 +56,7 @@ def test_get_product(client: TestClient, test_data: dict[str, User | Category]):
 
     product_id = create_response.json()["id"]
 
-    response = client.get(f"/products/{product_id}")
+    response = authenticated_client.get(f"/products/{product_id}")
 
     assert response.status_code == 200
     assert response.json()["name"] == "Laptop"
@@ -51,10 +70,10 @@ def test_get_product_not_found(client: TestClient):
 
 
 def test_get_products(
-    client: TestClient,
+    authenticated_client: TestClient,
     test_data: dict[str, User | Category],
 ):
-    client.post(
+    authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -65,7 +84,7 @@ def test_get_products(
         },
     )
 
-    client.post(
+    authenticated_client.post(
         "/products",
         json={
             "name": "Keyboard",
@@ -76,7 +95,7 @@ def test_get_products(
         },
     )
 
-    response = client.get("/products")
+    response = authenticated_client.get("/products")
 
     assert response.status_code == 200
 
@@ -87,8 +106,10 @@ def test_get_products(
     assert data[1]["name"] == "Keyboard"
 
 
-def test_update_product(client: TestClient, test_data: dict[str, User | Category]):
-    create_response = client.post(
+def test_update_product(
+    authenticated_client: TestClient, test_data: dict[str, User | Category]
+):
+    create_response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -101,7 +122,7 @@ def test_update_product(client: TestClient, test_data: dict[str, User | Category
 
     product_id = create_response.json()["id"]
 
-    response = client.patch(
+    response = authenticated_client.patch(
         f"/products/{product_id}",
         json={
             "name": "Gaming Laptop",
@@ -117,8 +138,10 @@ def test_update_product(client: TestClient, test_data: dict[str, User | Category
     assert data["price"] == 1800.00
 
 
-def test_delete_product(client: TestClient, test_data: dict[str, User | Category]):
-    create_response = client.post(
+def test_delete_product(
+    authenticated_client: TestClient, test_data: dict[str, User | Category]
+):
+    create_response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -131,20 +154,20 @@ def test_delete_product(client: TestClient, test_data: dict[str, User | Category
 
     product_id = create_response.json()["id"]
 
-    response = client.delete(f"/products/{product_id}")
+    response = authenticated_client.delete(f"/products/{product_id}")
 
     assert response.status_code == 204
     assert response.content == b""
 
-    get_response = client.get(f"/products/{product_id}")
+    get_response = authenticated_client.get(f"/products/{product_id}")
 
     assert get_response.status_code == 404
 
 
 def test_create_product_validation(
-    client: TestClient, test_data: dict[str, User | Category]
+    authenticated_client: TestClient, test_data: dict[str, User | Category]
 ):
-    response = client.post(
+    response = authenticated_client.post(
         "/products",
         json={
             "name": "",
@@ -158,8 +181,8 @@ def test_create_product_validation(
     assert response.status_code == 422
 
 
-def test_create_product_owner_not_found(client: TestClient):
-    response = client.post(
+def test_create_product_owner_not_found(authenticated_client: TestClient):
+    response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -175,10 +198,10 @@ def test_create_product_owner_not_found(client: TestClient):
 
 
 def test_create_product_category_not_found(
-    client: TestClient,
+    authenticated_client: TestClient,
     test_data: dict[str, User | Category],
 ):
-    response = client.post(
+    response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -194,10 +217,10 @@ def test_create_product_category_not_found(
 
 
 def test_update_product_owner_not_found(
-    client: TestClient,
+    authenticated_client: TestClient,
     test_data: dict[str, User | Category],
 ):
-    create_response = client.post(
+    create_response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -210,7 +233,7 @@ def test_update_product_owner_not_found(
 
     product_id = create_response.json()["id"]
 
-    response = client.patch(
+    response = authenticated_client.patch(
         f"/products/{product_id}",
         json={
             "owner_id": 999,
@@ -222,10 +245,10 @@ def test_update_product_owner_not_found(
 
 
 def test_update_product_category_not_found(
-    client: TestClient,
+    authenticated_client: TestClient,
     test_data: dict[str, User | Category],
 ):
-    create_response = client.post(
+    create_response = authenticated_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -238,7 +261,7 @@ def test_update_product_category_not_found(
 
     product_id = create_response.json()["id"]
 
-    response = client.patch(
+    response = authenticated_client.patch(
         f"/products/{product_id}",
         json={
             "category_id": 999,

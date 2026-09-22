@@ -32,6 +32,28 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
 
 
 @pytest.fixture
+def authenticated_client(
+    client: TestClient,
+    test_data: dict[str, User | Category],
+) -> TestClient:
+    response = client.post(
+        "/users/login",
+        json={
+            "username": "testuser",
+            "password": "testpassword123",
+        },
+    )
+
+    assert response.status_code == 200
+
+    token = response.json()["access_token"]
+
+    client.headers.update({"Authorization": f"Bearer {token}"})
+
+    return client
+
+
+@pytest.fixture
 def db_engine() -> Generator[Engine, None, None]:
     engine = create_engine(
         "sqlite:///:memory:",

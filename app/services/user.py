@@ -6,7 +6,7 @@ from app.models.user import User
 
 from app.schemas.user import UserCreate
 
-from app.core.security import hash_password
+from app.core.security import hash_password, create_access_token, verify_password
 
 
 class UserService:
@@ -37,3 +37,18 @@ class UserService:
 
     def get_users(self) -> list[User]:
         return self.repository.get_all()
+
+    def authenticate_user(
+        self,
+        username: str,
+        password: str,
+    ) -> str | None:
+        user = self.repository.get_by_username(username)
+
+        if user is None:
+            return None
+
+        if not verify_password(password, user.hashed_password):
+            return None
+
+        return create_access_token(user.id)

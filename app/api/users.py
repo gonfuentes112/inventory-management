@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import get_user_service
-from app.schemas.user import UserCreate, UserResponse
+from app.schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse
 from app.services.user import UserService
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -41,6 +41,31 @@ def get_users(
     service: UserServiceDependency,
 ):
     return service.get_users()
+
+
+@router.post(
+    "/login",
+    response_model=TokenResponse,
+)
+def login(
+    data: UserLogin,
+    service: UserServiceDependency,
+):
+    token = service.authenticate_user(
+        username=data.username,
+        password=data.password,
+    )
+
+    if token is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+        )
+
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+    }
 
 
 @router.get(
