@@ -13,6 +13,12 @@ class UserService:
         self.repository = UserRepository(session)
 
     def create_user(self, data: UserCreate) -> User:
+        if self.repository.get_by_username(data.username) is not None:
+            raise ValueError("Username already exists")
+
+        if self.repository.get_by_email(data.email) is not None:
+            raise ValueError("Email already exists")
+
         user = self.repository.create(username=data.username, email=data.email)
 
         self.session.commit()
