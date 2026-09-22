@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from app.repositories.category import CategoryRespository
+from app.repositories.category import CategoryRepository
 
 from app.models.category import Category
 
@@ -7,7 +7,7 @@ from app.models.category import Category
 class CategoryService:
     def __init__(self, session: Session) -> None:
         self.session = session
-        self.repository = CategoryRespository(session)
+        self.repository = CategoryRepository(session)
 
     def create_category(self, name: str) -> Category:
         category = self.repository.create(name)
