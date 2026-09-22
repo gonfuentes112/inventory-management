@@ -156,3 +156,79 @@ def test_update_product(db_session: Session) -> None:
     assert updated_product.description == "High-performance development laptop"
     assert updated_product.price == 1800.00
     assert updated_product.category_id == category.id
+
+
+def test_delete_product(db_session: Session) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+    )
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    repository = ProductRepository(db_session)
+
+    product = repository.create(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.commit()
+
+    repository.delete(product)
+    db_session.commit()
+
+    result = repository.get_by_id(product.id)
+
+    assert result is None
+
+
+def test_update_product_partial(db_session: Session) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+    )
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    repository = ProductRepository(db_session)
+
+    product = repository.create(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.commit()
+
+    updated_product = repository.update(
+        product=product,
+        name="Gaming Laptop",
+        description=None,
+        price=None,
+        owner_id=None,
+        category_id=None,
+    )
+
+    db_session.commit()
+
+    assert updated_product.name == "Gaming Laptop"
+    assert updated_product.description == "Development laptop"
+    assert updated_product.price == 1200.00
+    assert updated_product.owner_id == user.id
+    assert updated_product.category_id == category.id

@@ -50,6 +50,43 @@ def test_get_product_not_found(client: TestClient):
     assert response.json()["detail"] == "Product not found"
 
 
+def test_get_products(
+    client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    client.post(
+        "/products",
+        json={
+            "name": "Laptop",
+            "description": "Development laptop",
+            "price": 1200.00,
+            "owner_id": test_data["user"].id,
+            "category_id": test_data["category"].id,
+        },
+    )
+
+    client.post(
+        "/products",
+        json={
+            "name": "Keyboard",
+            "description": "Mechanical keyboard",
+            "price": 100.00,
+            "owner_id": test_data["user"].id,
+            "category_id": test_data["category"].id,
+        },
+    )
+
+    response = client.get("/products")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) == 2
+    assert data[0]["name"] == "Laptop"
+    assert data[1]["name"] == "Keyboard"
+
+
 def test_update_product(client: TestClient, test_data: dict[str, User | Category]):
     create_response = client.post(
         "/products",
