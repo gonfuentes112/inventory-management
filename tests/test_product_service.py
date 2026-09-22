@@ -1,3 +1,5 @@
+from pytest import raises
+
 from sqlalchemy.orm import Session
 
 from app.models.category import Category
@@ -222,3 +224,100 @@ def test_delete_product_returns_false_when_not_found(
     result = service.delete_product(999)
 
     assert result is False
+
+
+def test_create_product_fails_when_owner_not_found(
+    db_session: Session,
+) -> None:
+    service = ProductService(db_session)
+    assert service.user_repository.get_by_id(999) is None
+
+    data = ProductCreate(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        owner_id=999,
+        category_id=1,
+    )
+
+    assert data.owner_id == 999
+    assert data.category_id == 1
+
+    with raises(ValueError, match="Owner not found"):
+        service.create_product(data)
+
+
+def test_create_product_fails_when_category_not_found(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+    )
+
+    db_session.add(user)
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    assert service.category_repository.get_by_id(999) is None
+
+    data = ProductCreate(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        owner_id=user.id,
+        category_id=999,
+    )
+
+    assert data.owner_id == user.id
+    assert data.category_id == 999
+
+    with raises(ValueError, match="Category not found"):
+        service.create_product(data)
+
+
+def test_update_product_fails_when_owner_not_found(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+) -> None:
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            owner_id=test_data["user"].id,
+            category_id=test_data["category"].id,
+        )
+    )
+
+    with raises(ValueError, match="Owner not found"):
+        service.update_product(
+            product.id,
+            ProductUpdate(owner_id=999),
+        )
+
+
+def test_update_product_fails_when_category_not_found(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+) -> None:
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            owner_id=test_data["user"].id,
+            category_id=test_data["category"].id,
+        )
+    )
+
+    with raises(ValueError, match="Category not found"):
+        service.update_product(
+            product.id,
+            ProductUpdate(category_id=999),
+        )

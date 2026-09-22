@@ -6,13 +6,23 @@ from app.models.product import Product
 
 from app.schemas.product import ProductCreate, ProductUpdate
 
+from app.repositories.user import UserRepository
+from app.repositories.category import CategoryRepository
+
 
 class ProductService:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.repository = ProductRepository(session)
+        self.user_repository = UserRepository(session)
+        self.category_repository = CategoryRepository(session)
 
     def create_product(self, data: ProductCreate) -> Product:
+        if self.user_repository.get_by_id(data.owner_id) is None:
+            raise ValueError("Owner not found")
+
+        if self.category_repository.get_by_id(data.category_id) is None:
+            raise ValueError("Category not found")
         product = self.repository.create(
             name=data.name,
             description=data.description,
@@ -40,6 +50,14 @@ class ProductService:
 
         if product is None:
             return None
+
+        if data.owner_id is not None:
+            if self.user_repository.get_by_id(data.owner_id) is None:
+                raise ValueError("Owner not found")
+
+        if data.category_id is not None:
+            if self.category_repository.get_by_id(data.category_id) is None:
+                raise ValueError("Category not found")
 
         self.repository.update(
             product,

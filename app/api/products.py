@@ -23,7 +23,13 @@ def create_product(
     data: ProductCreate,
     service: ProductServiceDependency,
 ):
-    return service.create_product(data)
+    try:
+        return service.create_product(data)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
 
 
 @router.get(
@@ -64,7 +70,13 @@ def update_product(
     data: ProductUpdate,
     service: ProductServiceDependency,
 ):
-    product = service.update_product(product_id, data)
+    try:
+        product = service.update_product(product_id, data)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        )
 
     if product is None:
         raise HTTPException(
