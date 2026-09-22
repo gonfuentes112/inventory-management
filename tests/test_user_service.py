@@ -10,6 +10,7 @@ def test_create_user(db_session: Session):
     data = UserCreate(
         username="testuser",
         email="test@example.com",
+        password="testpassword123",
     )
     user = service.create_user(data)
 
@@ -24,6 +25,7 @@ def test_get_user(db_session: Session):
     data = UserCreate(
         username="testuser",
         email="test@example.com",
+        password="testpassword123",
     )
     user = service.create_user(data)
     result = service.get_user(user.id)
@@ -48,12 +50,14 @@ def test_get_users(db_session: Session):
         UserCreate(
             username="user1",
             email="user1@example.com",
+            password="testpassword123",
         )
     )
     service.create_user(
         UserCreate(
             username="user2",
             email="user2@example.com",
+            password="testpassword123",
         )
     )
 

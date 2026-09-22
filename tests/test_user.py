@@ -8,6 +8,7 @@ def test_user_create():
     user = UserCreate(
         username="testuser",
         email="test@example.com",
+        password="testpassword123",
     )
 
     assert user.username == "testuser"
@@ -19,6 +20,7 @@ def test_user_create_invalid_email():
         UserCreate(
             username="testuser",
             email="not-an-email",
+            password="testpassword123",
         )
 
 
@@ -27,6 +29,7 @@ def test_user_create_empty_username():
         UserCreate(
             username="",
             email="test@example.com",
+            password="testpassword123",
         )
 
 

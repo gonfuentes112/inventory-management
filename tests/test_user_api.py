@@ -1,5 +1,7 @@
 from fastapi.testclient import TestClient
 
+from app.core.security import hash_password
+
 
 def test_create_user(client: TestClient):
     response = client.post(
@@ -7,6 +9,7 @@ def test_create_user(client: TestClient):
         json={
             "username": "newuser",
             "email": "newuser@example.com",
+            "password": hash_password("testpassword123"),
         },
     )
 
@@ -33,6 +36,7 @@ def test_create_duplicate_user(client: TestClient):
     user_data = {
         "username": "duplicate",
         "email": "duplicate@example.com",
+        "password": hash_password("testpassword123"),
     }
 
     first_response = client.post(
@@ -57,6 +61,7 @@ def test_get_users(client: TestClient):
         json={
             "username": "user1",
             "email": "user1@example.com",
+            "password": hash_password("testpassword123"),
         },
     )
     client.post(
@@ -64,6 +69,7 @@ def test_get_users(client: TestClient):
         json={
             "username": "user2",
             "email": "user2@example.com",
+            "password": hash_password("testpassword123"),
         },
     )
 
@@ -84,6 +90,7 @@ def test_get_user(client: TestClient):
         json={
             "username": "testuser",
             "email": "test@example.com",
+            "password": hash_password("testpassword123"),
         },
     )
 
@@ -113,6 +120,7 @@ def test_create_user_duplicate_email(client: TestClient):
         json={
             "username": "user1",
             "email": "same@example.com",
+            "password": hash_password("testpassword123"),
         },
     )
 
@@ -121,6 +129,7 @@ def test_create_user_duplicate_email(client: TestClient):
         json={
             "username": "user2",
             "email": "same@example.com",
+            "password": hash_password("testpassword123"),
         },
     )
 

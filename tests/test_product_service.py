@@ -12,6 +12,7 @@ def test_create_product(db_session: Session) -> None:
     user = User(
         username="testuser",
         email="test@example.com",
+        hashed_password="testpassword123",
     )
 
     category = Category(
@@ -45,6 +46,7 @@ def test_get_product(db_session: Session) -> None:
     user = User(
         username="testuser",
         email="test@example.com",
+        hashed_password="testpassword123",
     )
 
     category = Category(
@@ -87,6 +89,7 @@ def test_get_products(db_session: Session) -> None:
     user = User(
         username="testuser",
         email="test@example.com",
+        hashed_password="testpassword123",
     )
 
     category = Category(
@@ -129,6 +132,7 @@ def test_update_product(db_session: Session) -> None:
     user = User(
         username="testuser",
         email="test@example.com",
+        hashed_password="testpassword123",
     )
 
     category = Category(
@@ -189,6 +193,7 @@ def test_delete_product(db_session: Session) -> None:
     user = User(
         username="testuser",
         email="test@example.com",
+        hashed_password="testpassword123",
     )
 
     category = Category(
@@ -253,6 +258,7 @@ def test_create_product_fails_when_category_not_found(
     user = User(
         username="testuser",
         email="test@example.com",
+        hashed_password="testpassword123",
     )
 
     db_session.add(user)

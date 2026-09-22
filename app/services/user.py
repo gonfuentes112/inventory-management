@@ -6,6 +6,8 @@ from app.models.user import User
 
 from app.schemas.user import UserCreate
 
+from app.core.security import hash_password
+
 
 class UserService:
     def __init__(self, session: Session) -> None:
@@ -19,7 +21,11 @@ class UserService:
         if self.repository.get_by_email(data.email) is not None:
             raise ValueError("Email already exists")
 
-        user = self.repository.create(username=data.username, email=data.email)
+        hashed_password = hash_password(data.password)
+
+        user = self.repository.create(
+            username=data.username, email=data.email, hashed_password=hashed_password
+        )
 
         self.session.commit()
         self.session.refresh(user)

@@ -16,6 +16,8 @@ from app.main import app
 
 from sqlalchemy.pool import StaticPool
 
+from app.core.security import hash_password
+
 
 @pytest.fixture
 def client(db_session: Session) -> Generator[TestClient, None, None]:
@@ -55,6 +57,7 @@ def test_data(db_session: Session) -> dict[str, User | Category]:
     user = User(
         username="testuser",
         email="test@example.com",
+        hashed_password=hash_password("testpassword123"),
     )
 
     category = Category(
