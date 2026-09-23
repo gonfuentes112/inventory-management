@@ -28,6 +28,7 @@ def test_create_product(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -62,6 +63,7 @@ def test_get_product(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -106,6 +108,7 @@ def test_get_products(db_session: Session) -> None:
             name="Laptop",
             description="Development laptop",
             price=1200.00,
+            quantity=10,
             owner_id=user.id,
             category_id=category.id,
         )
@@ -116,6 +119,7 @@ def test_get_products(db_session: Session) -> None:
             name="Keyboard",
             description="Mechanical keyboard",
             price=100.00,
+            quantity=10,
             owner_id=user.id,
             category_id=category.id,
         )
@@ -149,6 +153,7 @@ def test_update_product(db_session: Session) -> None:
             name="Laptop",
             description="Development laptop",
             price=1200.00,
+            quantity=10,
             owner_id=user.id,
             category_id=category.id,
         )
@@ -210,6 +215,7 @@ def test_delete_product(db_session: Session) -> None:
             name="Laptop",
             description="Development laptop",
             price=1200.00,
+            quantity=10,
             owner_id=user.id,
             category_id=category.id,
         )
@@ -241,6 +247,7 @@ def test_create_product_fails_when_owner_not_found(
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=999,
         category_id=1,
     )
@@ -272,6 +279,7 @@ def test_create_product_fails_when_category_not_found(
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=999,
     )
@@ -294,6 +302,7 @@ def test_update_product_fails_when_owner_not_found(
             name="Laptop",
             description="Development laptop",
             price=1200.00,
+            quantity=10,
             owner_id=test_data["user"].id,
             category_id=test_data["category"].id,
         )
@@ -317,6 +326,7 @@ def test_update_product_fails_when_category_not_found(
             name="Laptop",
             description="Development laptop",
             price=1200.00,
+            quantity=10,
             owner_id=test_data["user"].id,
             category_id=test_data["category"].id,
         )
@@ -327,3 +337,227 @@ def test_update_product_fails_when_category_not_found(
             product.id,
             ProductUpdate(category_id=999),
         )
+
+
+def test_add_stock(db_session: Session) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    updated_product = service.add_stock(
+        product_id=product.id,
+        quantity=5,
+    )
+
+    assert updated_product is not None
+    assert updated_product.quantity == 15
+
+
+def test_remove_stock(db_session: Session) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    updated_product = service.remove_stock(
+        product_id=product.id,
+        quantity=3,
+    )
+
+    assert updated_product is not None
+    assert updated_product.quantity == 7
+
+
+def test_remove_stock_fails_when_insufficient_stock(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=5,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    with raises(ValueError, match="Insufficient stock"):
+        service.remove_stock(
+            product_id=product.id,
+            quantity=6,
+        )
+
+    assert product.quantity == 5
+
+
+def test_add_stock_rejects_non_positive_quantity(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    with raises(ValueError, match="Quantity must be greater than 0"):
+        service.add_stock(
+            product_id=product.id,
+            quantity=0,
+        )
+
+    with raises(ValueError, match="Quantity must be greater than 0"):
+        service.add_stock(
+            product_id=product.id,
+            quantity=-5,
+        )
+
+    assert product.quantity == 10
+
+
+def test_remove_stock_rejects_non_positive_quantity(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(
+        name="Electronics",
+    )
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    with raises(ValueError, match="Quantity must be greater than 0"):
+        service.remove_stock(
+            product_id=product.id,
+            quantity=0,
+        )
+
+    with raises(ValueError, match="Quantity must be greater than 0"):
+        service.remove_stock(
+            product_id=product.id,
+            quantity=-5,
+        )
+
+    assert product.quantity == 10
+
+
+def test_add_stock_returns_none_when_product_not_found(
+    db_session: Session,
+) -> None:
+    service = ProductService(db_session)
+
+    result = service.add_stock(
+        product_id=999,
+        quantity=5,
+    )
+
+    assert result is None
+
+
+def test_remove_stock_returns_none_when_product_not_found(
+    db_session: Session,
+) -> None:
+    service = ProductService(db_session)
+
+    result = service.remove_stock(
+        product_id=999,
+        quantity=5,
+    )
+
+    assert result is None

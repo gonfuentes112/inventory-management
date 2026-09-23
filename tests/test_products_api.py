@@ -16,6 +16,7 @@ def test_create_product(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -36,6 +37,7 @@ def test_create_product_requires_authentication(client: TestClient):
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": 1,
             "category_id": 1,
         },
@@ -53,6 +55,7 @@ def test_get_product(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -83,6 +86,7 @@ def test_get_products(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -94,6 +98,7 @@ def test_get_products(
             "name": "Keyboard",
             "description": "Mechanical keyboard",
             "price": 100.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -119,6 +124,7 @@ def test_update_product(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -151,6 +157,7 @@ def test_delete_product(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -177,6 +184,7 @@ def test_create_product_validation(
             "name": "",
             "description": "Invalid product",
             "price": -100,
+            "quantity": -1,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -192,6 +200,7 @@ def test_create_product_owner_not_found(authenticated_client: TestClient):
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": 999,
             "category_id": 1,
         },
@@ -211,6 +220,7 @@ def test_create_product_category_not_found(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": 999,
         },
@@ -230,6 +240,7 @@ def test_update_product_owner_not_found(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -258,6 +269,7 @@ def test_update_product_category_not_found(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },
@@ -288,6 +300,7 @@ def test_unauthenticated_cannot_update_product(
         name="Test Product",
         description="Test description",
         price=100.0,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -315,6 +328,7 @@ def test_unauthenticated_cannot_delete_product(
         name="Test Product",
         description="Test description",
         price=100.0,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -339,6 +353,7 @@ def test_normal_user_cannot_delete_product(
         name="Test Product",
         description="Test description",
         price=100.0,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -350,3 +365,250 @@ def test_normal_user_cannot_delete_product(
 
     assert response.status_code == 403
     assert response.json()["detail"] == "Insufficient permissions"
+
+
+def test_authenticated_user_can_add_stock(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/add",
+        json={"quantity": 5},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 15
+
+
+def test_authenticated_user_can_remove_stock(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/remove",
+        json={"quantity": 3},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 7
+
+
+def test_unauthenticated_cannot_add_stock(
+    client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = client.post(
+        f"/products/{product.id}/stock/add",
+        json={"quantity": 5},
+    )
+
+    assert response.status_code == 401
+
+
+def test_unauthenticated_cannot_remove_stock(
+    client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = client.post(
+        f"/products/{product.id}/stock/remove",
+        json={"quantity": 3},
+    )
+
+    assert response.status_code == 401
+
+
+def test_remove_stock_fails_when_insufficient_stock(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=5,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/remove",
+        json={"quantity": 6},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Insufficient stock"
+
+    db_session.refresh(product)
+    assert product.quantity == 5
+
+
+def test_add_stock_rejects_invalid_quantity(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/add",
+        json={"quantity": 0},
+    )
+
+    assert response.status_code == 422
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/add",
+        json={"quantity": -5},
+    )
+
+    assert response.status_code == 422
+
+
+def test_remove_stock_rejects_invalid_quantity(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/remove",
+        json={"quantity": 0},
+    )
+
+    assert response.status_code == 422
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/remove",
+        json={"quantity": -5},
+    )
+
+    assert response.status_code == 422
+
+
+def test_add_stock_returns_404_for_missing_product(
+    authenticated_client: TestClient,
+):
+    response = authenticated_client.post(
+        "/products/999/stock/add",
+        json={"quantity": 5},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Product not found"
+
+
+def test_remove_stock_returns_404_for_missing_product(
+    authenticated_client: TestClient,
+):
+    response = authenticated_client.post(
+        "/products/999/stock/remove",
+        json={"quantity": 5},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Product not found"

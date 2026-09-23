@@ -56,6 +56,7 @@ def test_create_product_with_authentication(
             "name": "Laptop",
             "description": "Development laptop",
             "price": 1200.00,
+            "quantity": 10,
             "owner_id": test_data["user"].id,
             "category_id": test_data["category"].id,
         },

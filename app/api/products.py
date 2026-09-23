@@ -8,6 +8,8 @@ from app.services.product import ProductService
 
 from app.api.dependencies import CurrentUser, get_product_service, AdminUser
 
+from app.schemas.inventory import StockUpdate
+
 router = APIRouter(prefix="/products", tags=["products"])
 
 ProductServiceDependency = Annotated[
@@ -43,6 +45,66 @@ def get_products(
     service: ProductServiceDependency,
 ):
     return service.get_products()
+
+
+@router.post(
+    "/{product_id}/stock/add",
+    response_model=ProductResponse,
+)
+def add_stock(
+    product_id: int,
+    data: StockUpdate,
+    service: ProductServiceDependency,
+    current_user: CurrentUser,
+):
+    try:
+        product = service.add_stock(
+            product_id=product_id,
+            quantity=data.quantity,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+
+    return product
+
+
+@router.post(
+    "/{product_id}/stock/remove",
+    response_model=ProductResponse,
+)
+def remove_stock(
+    product_id: int,
+    data: StockUpdate,
+    service: ProductServiceDependency,
+    current_user: CurrentUser,
+):
+    try:
+        product = service.remove_stock(
+            product_id=product_id,
+            quantity=data.quantity,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
+
+    if product is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Product not found",
+        )
+
+    return product
 
 
 @router.get(

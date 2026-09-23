@@ -9,6 +9,7 @@ def test_product_create_schema():
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=1,
         category_id=1,
     )
@@ -23,6 +24,7 @@ def test_product_create_rejects_negative_price():
             name="Laptop",
             description="Development laptop",
             price=-100,
+            quantity=10,
             owner_id=1,
             category_id=1,
         )
@@ -34,6 +36,7 @@ def test_product_create_rejects_empty_name():
             name="",
             description="Development laptop",
             price=1200.00,
+            quantity=10,
             owner_id=1,
             category_id=1,
         )
@@ -49,6 +52,7 @@ def test_product_response_from_orm():
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=1,
         category_id=1,
     )

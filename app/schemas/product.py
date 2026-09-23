@@ -7,6 +7,7 @@ class ProductCreate(BaseModel):
     price: float = Field(ge=0)
     owner_id: int
     category_id: int
+    quantity: int = Field(ge=0)
 
 
 class ProductResponse(BaseModel):
@@ -16,6 +17,7 @@ class ProductResponse(BaseModel):
     price: float
     owner_id: int
     category_id: int
+    quantity: int
 
     model_config = {"from_attributes": True}
 
@@ -24,5 +26,6 @@ class ProductUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     description: str | None = None
     price: float | None = Field(default=None, ge=0)
+    quantity: int | None = Field(default=None, ge=0)
     owner_id: int | None = None
     category_id: int | None = None

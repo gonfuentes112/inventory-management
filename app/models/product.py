@@ -1,4 +1,4 @@
-from sqlalchemy import ForeignKey, Numeric, String, Text
+from sqlalchemy import ForeignKey, Numeric, String, Text, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -11,6 +11,12 @@ if TYPE_CHECKING:
 
 class Product(Base):
     __tablename__ = "products"
+    __table_args__ = (
+        CheckConstraint(
+            "quantity >= 0",
+            name="ck_products_quantity_non_negative",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
@@ -31,3 +37,8 @@ class Product(Base):
     owner: Mapped["User"] = relationship(back_populates="products")
 
     category: Mapped["Category"] = relationship(back_populates="products")
+
+    quantity: Mapped[int] = mapped_column(
+        nullable=False,
+        default=0,
+    )

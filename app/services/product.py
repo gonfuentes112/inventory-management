@@ -27,6 +27,7 @@ class ProductService:
             name=data.name,
             description=data.description,
             price=data.price,
+            quantity=data.quantity,
             owner_id=data.owner_id,
             category_id=data.category_id,
         )
@@ -64,6 +65,7 @@ class ProductService:
             name=data.name,
             description=data.description,
             price=data.price,
+            quantity=data.quantity,
             owner_id=data.owner_id,
             category_id=data.category_id,
         )
@@ -84,3 +86,46 @@ class ProductService:
         self.repository.delete(product)
         self.session.commit()
         return True
+
+    def add_stock(
+        self,
+        product_id: int,
+        quantity: int,
+    ) -> Product | None:
+        product = self.repository.get_by_id(product_id)
+
+        if product is None:
+            return None
+
+        if quantity <= 0:
+            raise ValueError("Quantity must be greater than 0")
+
+        product.quantity += quantity
+
+        self.session.commit()
+        self.session.refresh(product)
+
+        return product
+
+    def remove_stock(
+        self,
+        product_id: int,
+        quantity: int,
+    ) -> Product | None:
+        product = self.repository.get_by_id(product_id)
+
+        if product is None:
+            return None
+
+        if quantity <= 0:
+            raise ValueError("Quantity must be greater than 0")
+
+        if product.quantity < quantity:
+            raise ValueError("Insufficient stock")
+
+        product.quantity -= quantity
+
+        self.session.commit()
+        self.session.refresh(product)
+
+        return product

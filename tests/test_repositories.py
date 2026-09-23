@@ -26,6 +26,7 @@ def test_create_product(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -57,6 +58,7 @@ def test_get_product_by_id(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -98,6 +100,7 @@ def test_get_all_products(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -106,6 +109,7 @@ def test_get_all_products(db_session: Session) -> None:
         name="Keyboard",
         description="Mechanical keyboard",
         price=100.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -139,6 +143,7 @@ def test_update_product(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -150,6 +155,7 @@ def test_update_product(db_session: Session) -> None:
         name="Gaming Laptop",
         description="High-performance development laptop",
         price=1800.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -182,6 +188,7 @@ def test_delete_product(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -216,6 +223,7 @@ def test_update_product_partial(db_session: Session) -> None:
         name="Laptop",
         description="Development laptop",
         price=1200.00,
+        quantity=10,
         owner_id=user.id,
         category_id=category.id,
     )
@@ -227,6 +235,7 @@ def test_update_product_partial(db_session: Session) -> None:
         name="Gaming Laptop",
         description=None,
         price=None,
+        quantity=None,
         owner_id=None,
         category_id=None,
     )

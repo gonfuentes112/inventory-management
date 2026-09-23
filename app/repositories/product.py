@@ -21,6 +21,7 @@ class ProductRepository:
         name: str,
         description: str | None,
         price: float,
+        quantity: int,
         owner_id: int,
         category_id: int,
     ) -> Product:
@@ -28,6 +29,7 @@ class ProductRepository:
             name=name,
             description=description,
             price=price,
+            quantity=quantity,
             owner_id=owner_id,
             category_id=category_id,
         )
@@ -46,6 +48,7 @@ class ProductRepository:
         name: str | None,
         description: str | None,
         price: float | None,
+        quantity: int | None,
         owner_id: int | None,
         category_id: int | None,
     ) -> Product:
@@ -57,6 +60,9 @@ class ProductRepository:
 
         if price is not None:
             product.price = price
+
+        if quantity is not None:
+            product.quantity = quantity
 
         if owner_id is not None:
             product.owner_id = owner_id
