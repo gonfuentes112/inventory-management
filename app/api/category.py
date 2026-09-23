@@ -6,6 +6,8 @@ from app.services.category import CategoryService
 from app.schemas.category import CategoryCreate, CategoryResponse
 from app.api.dependencies import get_category_service
 
+from app.api.dependencies import get_category_service, AdminUser
+
 router = APIRouter(prefix="/categories", tags=["categories"])
 
 CategoryServiceDependency = Annotated[
@@ -19,7 +21,11 @@ CategoryServiceDependency = Annotated[
     response_model=CategoryResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_category(data: CategoryCreate, service: CategoryServiceDependency):
+def create_category(
+    data: CategoryCreate,
+    service: CategoryServiceDependency,
+    current_user: AdminUser,
+):
     return service.create_category(data.name)
 
 
@@ -53,7 +59,11 @@ def get_category(
 
 
 @router.delete("/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_category(category_id: int, service: CategoryServiceDependency):
+def delete_category(
+    category_id: int,
+    service: CategoryServiceDependency,
+    current_user: AdminUser,
+):
     deleted = service.delete_category(category_id)
     if not deleted:
         raise HTTPException(

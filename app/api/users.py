@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.dependencies import get_user_service
+from app.api.dependencies import get_user_service, CurrentUser
 from app.schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse
 from app.services.user import UserService
 
@@ -37,9 +37,7 @@ def create_user(
     "",
     response_model=list[UserResponse],
 )
-def get_users(
-    service: UserServiceDependency,
-):
+def get_users(service: UserServiceDependency, current_user: CurrentUser):
     return service.get_users()
 
 
@@ -72,10 +70,7 @@ def login(
     "/{user_id}",
     response_model=UserResponse,
 )
-def get_user(
-    user_id: int,
-    service: UserServiceDependency,
-):
+def get_user(user_id: int, service: UserServiceDependency, current_user: CurrentUser):
     user = service.get_user(user_id)
 
     if user is None:

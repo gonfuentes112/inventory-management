@@ -6,7 +6,7 @@ from app.api.dependencies import get_product_service
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.services.product import ProductService
 
-from app.api.dependencies import CurrentUser, get_product_service
+from app.api.dependencies import CurrentUser, get_product_service, AdminUser
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -72,6 +72,7 @@ def update_product(
     product_id: int,
     data: ProductUpdate,
     service: ProductServiceDependency,
+    current_user: CurrentUser,
 ):
     try:
         product = service.update_product(product_id, data)
@@ -95,8 +96,7 @@ def update_product(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 def delete_product(
-    product_id: int,
-    service: ProductServiceDependency,
+    product_id: int, service: ProductServiceDependency, current_user: AdminUser
 ):
     deleted = service.delete_product(product_id)
 

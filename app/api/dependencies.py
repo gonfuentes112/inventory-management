@@ -14,6 +14,8 @@ from app.core.security import decode_access_token
 from app.models.user import User
 from app.repositories.user import UserRepository
 
+from app.core.roles import UserRole
+
 
 def get_product_service(
     db: Annotated[Session, Depends(get_db)],
@@ -62,4 +64,25 @@ def get_current_user(
 CurrentUser = Annotated[
     User,
     Depends(get_current_user),
+]
+
+
+def require_role(required_role: UserRole):
+    def role_checker(
+        current_user: CurrentUser,
+    ) -> User:
+        if current_user.role != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+
+        return current_user
+
+    return role_checker
+
+
+AdminUser = Annotated[
+    User,
+    Depends(require_role(UserRole.ADMIN)),
 ]

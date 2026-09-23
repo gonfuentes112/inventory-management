@@ -2,6 +2,10 @@ from fastapi.testclient import TestClient
 from app.models.category import Category
 from app.models.user import User
 
+from sqlalchemy.orm import Session
+
+from app.models.product import Product
+
 
 def test_create_product(
     authenticated_client: TestClient, test_data: dict[str, User | Category]
@@ -139,9 +143,9 @@ def test_update_product(
 
 
 def test_delete_product(
-    authenticated_client: TestClient, test_data: dict[str, User | Category]
+    admin_client: TestClient, test_data: dict[str, User | Category]
 ):
-    create_response = authenticated_client.post(
+    create_response = admin_client.post(
         "/products",
         json={
             "name": "Laptop",
@@ -154,12 +158,12 @@ def test_delete_product(
 
     product_id = create_response.json()["id"]
 
-    response = authenticated_client.delete(f"/products/{product_id}")
+    response = admin_client.delete(f"/products/{product_id}")
 
     assert response.status_code == 204
     assert response.content == b""
 
-    get_response = authenticated_client.get(f"/products/{product_id}")
+    get_response = admin_client.get(f"/products/{product_id}")
 
     assert get_response.status_code == 404
 
@@ -270,3 +274,79 @@ def test_update_product_category_not_found(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Category not found"
+
+
+def test_unauthenticated_cannot_update_product(
+    client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Test Product",
+        description="Test description",
+        price=100.0,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = client.patch(
+        f"/products/{product.id}",
+        json={"name": "Updated Product"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_unauthenticated_cannot_delete_product(
+    client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Test Product",
+        description="Test description",
+        price=100.0,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = client.delete(f"/products/{product.id}")
+
+    assert response.status_code == 401
+
+
+def test_normal_user_cannot_delete_product(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    user = test_data["user"]
+    category = test_data["category"]
+
+    product = Product(
+        name="Test Product",
+        description="Test description",
+        price=100.0,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.delete(f"/products/{product.id}")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient permissions"

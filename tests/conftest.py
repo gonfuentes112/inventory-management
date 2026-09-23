@@ -80,6 +80,7 @@ def test_data(db_session: Session) -> dict[str, User | Category]:
         username="testuser",
         email="test@example.com",
         hashed_password=hash_password("testpassword123"),
+        role="user",
     )
 
     category = Category(
@@ -93,3 +94,41 @@ def test_data(db_session: Session) -> dict[str, User | Category]:
         "user": user,
         "category": category,
     }
+
+
+@pytest.fixture
+def admin_user(db_session: Session) -> User:
+    user = User(
+        username="admin",
+        email="admin@example.com",
+        hashed_password=hash_password("adminpassword123"),
+        role="admin",
+    )
+
+    db_session.add(user)
+    db_session.commit()
+    db_session.refresh(user)
+
+    return user
+
+
+@pytest.fixture
+def admin_client(
+    client: TestClient,
+    admin_user: User,
+) -> TestClient:
+    response = client.post(
+        "/users/login",
+        json={
+            "username": "admin",
+            "password": "adminpassword123",
+        },
+    )
+
+    assert response.status_code == 200
+
+    token = response.json()["access_token"]
+
+    client.headers.update({"Authorization": f"Bearer {token}"})
+
+    return client
