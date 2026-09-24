@@ -110,3 +110,40 @@ def test_unauthenticated_cannot_create_category(
     )
 
     assert response.status_code == 401
+
+
+def test_user_cannot_delete_category(
+    authenticated_client: TestClient,
+    admin_client: TestClient,
+):
+    create_response = admin_client.post(
+        "/categories",
+        json={"name": "DeleteTestCategory"},
+    )
+
+    assert create_response.status_code == 201
+
+    category_id = create_response.json()["id"]
+
+    response = authenticated_client.delete(f"/categories/{category_id}")
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Insufficient permissions"
+
+
+def test_unauthenticated_cannot_delete_category(
+    client: TestClient,
+    admin_client: TestClient,
+):
+    create_response = admin_client.post(
+        "/categories",
+        json={"name": "UnauthDeleteTestCategory"},
+    )
+
+    assert create_response.status_code == 201
+
+    category_id = create_response.json()["id"]
+
+    response = client.delete(f"/categories/{category_id}")
+
+    assert response.status_code == 401

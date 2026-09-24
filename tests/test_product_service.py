@@ -9,10 +9,7 @@ from app.services.product import ProductService
 
 from app.db.redis import redis_client
 
-
-@pytest.fixture(autouse=True)
-def clear_redis() -> None:
-    redis_client.flushdb()
+from unittest.mock import patch
 
 
 def test_create_product(db_session: Session) -> None:
@@ -755,3 +752,68 @@ def test_remove_stock_invalidates_cache(
     service.remove_stock(product.id, 3)
 
     assert redis_client.get(f"product:{product.id}") is None
+
+
+def test_get_product_returns_cached_product(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+) -> None:
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=test_data["user"].id,
+            category_id=test_data["category"].id,
+        )
+    )
+
+    with patch("app.services.product.get_cached_product") as mock_get_cached:
+        mock_get_cached.return_value = product
+
+        result = service.get_product(product.id)
+
+    assert result is not None
+    assert result.id == product.id
+    assert result.name == "Laptop"
+
+    mock_get_cached.assert_called_once_with(product.id)
+
+
+def test_get_product_queries_database_on_cache_miss(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+) -> None:
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=test_data["user"].id,
+            category_id=test_data["category"].id,
+        )
+    )
+
+    with (
+        patch(
+            "app.services.product.get_cached_product",
+            return_value=None,
+        ),
+        patch.object(
+            service.repository,
+            "get_by_id",
+            wraps=service.repository.get_by_id,
+        ) as mock_get_by_id,
+    ):
+        result = service.get_product(product.id)
+
+    assert result is not None
+    assert result.id == product.id
+
+    mock_get_by_id.assert_called_once_with(product.id)

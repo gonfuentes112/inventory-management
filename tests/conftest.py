@@ -18,6 +18,13 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.security import hash_password
 
+from app.db.redis import redis_client
+
+
+@pytest.fixture(autouse=True)
+def clear_redis() -> None:
+    redis_client.flushdb()
+
 
 @pytest.fixture
 def client(db_session: Session) -> Generator[TestClient, None, None]:
@@ -29,28 +36,6 @@ def client(db_session: Session) -> Generator[TestClient, None, None]:
     yield TestClient(app)
 
     app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def authenticated_client(
-    client: TestClient,
-    test_data: dict[str, User | Category],
-) -> TestClient:
-    response = client.post(
-        "/users/login",
-        json={
-            "username": "testuser",
-            "password": "testpassword123",
-        },
-    )
-
-    assert response.status_code == 200
-
-    token = response.json()["access_token"]
-
-    client.headers.update({"Authorization": f"Bearer {token}"})
-
-    return client
 
 
 @pytest.fixture
@@ -113,11 +98,49 @@ def admin_user(db_session: Session) -> User:
 
 
 @pytest.fixture
+def authenticated_client(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+) -> Generator[TestClient, None, None]:
+    def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    test_client = TestClient(app)
+
+    response = test_client.post(
+        "/users/login",
+        json={
+            "username": "testuser",
+            "password": "testpassword123",
+        },
+    )
+
+    assert response.status_code == 200
+
+    token = response.json()["access_token"]
+
+    test_client.headers.update({"Authorization": f"Bearer {token}"})
+
+    yield test_client
+
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
 def admin_client(
-    client: TestClient,
+    db_session: Session,
     admin_user: User,
-) -> TestClient:
-    response = client.post(
+) -> Generator[TestClient, None, None]:
+    def override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = override_get_db
+
+    test_client = TestClient(app)
+
+    response = test_client.post(
         "/users/login",
         json={
             "username": "admin",
@@ -129,6 +152,8 @@ def admin_client(
 
     token = response.json()["access_token"]
 
-    client.headers.update({"Authorization": f"Bearer {token}"})
+    test_client.headers.update({"Authorization": f"Bearer {token}"})
 
-    return client
+    yield test_client
+
+    app.dependency_overrides.clear()

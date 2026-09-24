@@ -116,7 +116,8 @@ def test_get_products(
 
 
 def test_update_product(
-    authenticated_client: TestClient, test_data: dict[str, User | Category]
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
 ):
     create_response = authenticated_client.post(
         "/products",
@@ -145,7 +146,11 @@ def test_update_product(
     data = response.json()
 
     assert data["name"] == "Gaming Laptop"
+    assert data["description"] == "Development laptop"
     assert data["price"] == 1800.00
+    assert data["quantity"] == 10
+    assert data["owner_id"] == test_data["user"].id
+    assert data["category_id"] == test_data["category"].id
 
 
 def test_delete_product(
@@ -612,3 +617,72 @@ def test_remove_stock_returns_404_for_missing_product(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Product not found"
+
+
+def test_update_product_not_found(
+    authenticated_client: TestClient,
+):
+    response = authenticated_client.patch(
+        "/products/999",
+        json={"name": "Updated Product"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == "Product not found"
+
+
+def test_update_product_invalid_data(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    create_response = authenticated_client.post(
+        "/products",
+        json={
+            "name": "Laptop",
+            "description": "Development laptop",
+            "price": 1200.00,
+            "quantity": 10,
+            "owner_id": test_data["user"].id,
+            "category_id": test_data["category"].id,
+        },
+    )
+
+    product_id = create_response.json()["id"]
+
+    response = authenticated_client.patch(
+        f"/products/{product_id}",
+        json={
+            "price": -100,
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_remove_stock_to_zero(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+):
+    product = Product(
+        name="Laptop",
+        description="Development laptop",
+        price=1200.00,
+        quantity=5,
+        owner_id=test_data["user"].id,
+        category_id=test_data["category"].id,
+    )
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.post(
+        f"/products/{product.id}/stock/remove",
+        json={"quantity": 5},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["quantity"] == 0
+
+    db_session.refresh(product)
+    assert product.quantity == 0

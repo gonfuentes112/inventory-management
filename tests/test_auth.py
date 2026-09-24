@@ -68,3 +68,51 @@ def test_create_product_with_authentication(
 
     assert data["name"] == "Laptop"
     assert data["owner_id"] == test_data["user"].id
+
+
+def test_login_nonexistent_user(client: TestClient):
+    response = client.post(
+        "/users/login",
+        json={
+            "username": "doesnotexist",
+            "password": "testpassword123",
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid username or password"
+
+
+def test_login_missing_password(client: TestClient):
+    response = client.post(
+        "/users/login",
+        json={
+            "username": "testuser",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_login_missing_username(client: TestClient):
+    response = client.post(
+        "/users/login",
+        json={
+            "password": "testpassword123",
+        },
+    )
+
+    assert response.status_code == 422
+
+
+def test_invalid_token_cannot_access_protected_endpoint(
+    client: TestClient,
+):
+    response = client.get(
+        "/users",
+        headers={
+            "Authorization": "Bearer invalid-token",
+        },
+    )
+
+    assert response.status_code == 401

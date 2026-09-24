@@ -2,7 +2,10 @@ from app.models.category import Category
 from app.models.user import User
 from app.repositories.product import ProductRepository
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.models.product import Product
 
 
 def test_create_product(db_session: Session) -> None:
@@ -247,3 +250,34 @@ def test_update_product_partial(db_session: Session) -> None:
     assert updated_product.price == 1200.00
     assert updated_product.owner_id == user.id
     assert updated_product.category_id == category.id
+
+
+def test_create_product_rollback(db_session: Session, test_data):
+    repository = ProductRepository(db_session)
+
+    product = repository.create(
+        name="Rollback Product",
+        description="This should not persist",
+        price=100.00,
+        quantity=5,
+        owner_id=test_data["user"].id,
+        category_id=test_data["category"].id,
+    )
+
+    assert product.id is not None
+
+    db_session.rollback()
+
+    result = db_session.scalar(
+        select(Product).where(Product.name == "Rollback Product")
+    )
+
+    assert result is None
+
+
+def test_get_all_products_returns_empty_list(db_session: Session) -> None:
+    repository = ProductRepository(db_session)
+
+    products = repository.get_all()
+
+    assert products == []
