@@ -1,4 +1,4 @@
-from pytest import raises
+import pytest
 
 from sqlalchemy.orm import Session
 
@@ -6,6 +6,13 @@ from app.models.category import Category
 from app.models.user import User
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.product import ProductService
+
+from app.db.redis import redis_client
+
+
+@pytest.fixture(autouse=True)
+def clear_redis() -> None:
+    redis_client.flushdb()
 
 
 def test_create_product(db_session: Session) -> None:
@@ -255,7 +262,7 @@ def test_create_product_fails_when_owner_not_found(
     assert data.owner_id == 999
     assert data.category_id == 1
 
-    with raises(ValueError, match="Owner not found"):
+    with pytest.raises(ValueError, match="Owner not found"):
         service.create_product(data)
 
 
@@ -287,7 +294,7 @@ def test_create_product_fails_when_category_not_found(
     assert data.owner_id == user.id
     assert data.category_id == 999
 
-    with raises(ValueError, match="Category not found"):
+    with pytest.raises(ValueError, match="Category not found"):
         service.create_product(data)
 
 
@@ -308,7 +315,7 @@ def test_update_product_fails_when_owner_not_found(
         )
     )
 
-    with raises(ValueError, match="Owner not found"):
+    with pytest.raises(ValueError, match="Owner not found"):
         service.update_product(
             product.id,
             ProductUpdate(owner_id=999),
@@ -332,7 +339,7 @@ def test_update_product_fails_when_category_not_found(
         )
     )
 
-    with raises(ValueError, match="Category not found"):
+    with pytest.raises(ValueError, match="Category not found"):
         service.update_product(
             product.id,
             ProductUpdate(category_id=999),
@@ -440,7 +447,7 @@ def test_remove_stock_fails_when_insufficient_stock(
         )
     )
 
-    with raises(ValueError, match="Insufficient stock"):
+    with pytest.raises(ValueError, match="Insufficient stock"):
         service.remove_stock(
             product_id=product.id,
             quantity=6,
@@ -478,13 +485,13 @@ def test_add_stock_rejects_non_positive_quantity(
         )
     )
 
-    with raises(ValueError, match="Quantity must be greater than 0"):
+    with pytest.raises(ValueError, match="Quantity must be greater than 0"):
         service.add_stock(
             product_id=product.id,
             quantity=0,
         )
 
-    with raises(ValueError, match="Quantity must be greater than 0"):
+    with pytest.raises(ValueError, match="Quantity must be greater than 0"):
         service.add_stock(
             product_id=product.id,
             quantity=-5,
@@ -522,13 +529,13 @@ def test_remove_stock_rejects_non_positive_quantity(
         )
     )
 
-    with raises(ValueError, match="Quantity must be greater than 0"):
+    with pytest.raises(ValueError, match="Quantity must be greater than 0"):
         service.remove_stock(
             product_id=product.id,
             quantity=0,
         )
 
-    with raises(ValueError, match="Quantity must be greater than 0"):
+    with pytest.raises(ValueError, match="Quantity must be greater than 0"):
         service.remove_stock(
             product_id=product.id,
             quantity=-5,
@@ -561,3 +568,190 @@ def test_remove_stock_returns_none_when_product_not_found(
     )
 
     assert result is None
+
+
+def test_get_product_caches_result(db_session: Session) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(name="Electronics")
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    assert redis_client.get(f"product:{product.id}") is None
+
+    service.get_product(product.id)
+
+    cached = redis_client.get(f"product:{product.id}")
+
+    assert cached is not None
+    assert "Laptop" in cached
+
+
+def test_get_product_uses_cache(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(name="Electronics")
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    service.get_product(product.id)
+
+    def fail_if_database_is_called(product_id: int):
+        raise AssertionError("PostgreSQL should not be queried")
+
+    service.repository.get_by_id = fail_if_database_is_called
+
+    cached_product = service.get_product(product.id)
+
+    assert cached_product is not None
+    assert cached_product.id == product.id
+    assert cached_product.name == "Laptop"
+
+
+def test_update_product_invalidates_cache(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(name="Electronics")
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    service.get_product(product.id)
+
+    assert redis_client.get(f"product:{product.id}") is not None
+
+    service.update_product(
+        product.id,
+        ProductUpdate(name="Gaming Laptop"),
+    )
+
+    assert redis_client.get(f"product:{product.id}") is None
+
+
+def test_add_stock_invalidates_cache(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(name="Electronics")
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    service.get_product(product.id)
+
+    assert redis_client.get(f"product:{product.id}") is not None
+
+    service.add_stock(product.id, 5)
+
+    assert redis_client.get(f"product:{product.id}") is None
+
+
+def test_remove_stock_invalidates_cache(
+    db_session: Session,
+) -> None:
+    user = User(
+        username="testuser",
+        email="test@example.com",
+        hashed_password="testpassword123",
+    )
+
+    category = Category(name="Electronics")
+
+    db_session.add_all([user, category])
+    db_session.commit()
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=1200.00,
+            quantity=10,
+            owner_id=user.id,
+            category_id=category.id,
+        )
+    )
+
+    service.get_product(product.id)
+
+    assert redis_client.get(f"product:{product.id}") is not None
+
+    service.remove_stock(product.id, 3)
+
+    assert redis_client.get(f"product:{product.id}") is None
