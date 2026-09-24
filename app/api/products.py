@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 
 from app.api.dependencies import get_product_service
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
@@ -9,6 +9,8 @@ from app.services.product import ProductService
 from app.api.dependencies import CurrentUser, get_product_service, AdminUser
 
 from app.schemas.inventory import StockUpdate
+
+from app.tasks.product import log_product_created
 
 router = APIRouter(prefix="/products", tags=["products"])
 
@@ -27,9 +29,17 @@ def create_product(
     data: ProductCreate,
     service: ProductServiceDependency,
     current_user: CurrentUser,
+    background_tasks: BackgroundTasks,
 ):
     try:
-        return service.create_product(data)
+        product = service.create_product(data)
+
+        background_tasks.add_task(
+            log_product_created,
+            product.id,
+        )
+        return product
+
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
