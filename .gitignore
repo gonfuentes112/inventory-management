@@ -12,3 +12,6 @@ wheels/
 # Environmental variables
 .env
 .env.docker
+
+#prod compose yml
+compose.prod.yml
