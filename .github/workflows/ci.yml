@@ -103,7 +103,7 @@ jobs:
           docker push \
             "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG"
 
-      - name: Deploy to EC2
+            - name: Deploy to EC2
         env:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
@@ -111,7 +111,8 @@ jobs:
             --instance-ids "$EC2_INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
             --parameters "commands=[
-              \"cd ~/inventory-management\",
+              \"set -e\",
+              \"cd /home/ec2-user/inventory-management\",
               \"export IMAGE_TAG=$IMAGE_TAG\",
               \"docker compose -f compose.prod.yml pull api\",
               \"docker compose -f compose.prod.yml up -d\",
