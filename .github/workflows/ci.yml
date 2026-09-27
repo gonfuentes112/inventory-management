@@ -105,22 +105,29 @@ jobs:
 
       - name: Deploy to EC2
         run: |
+          COMMANDS=$(jq -n \
+            --arg region "$AWS_REGION" \
+            --arg image_tag "$IMAGE_TAG" \
+            '[
+              "set -e",
+              "cd /home/ec2-user/inventory-management",
+              ("aws ecr get-login-password --region " + $region + " | docker login --username AWS --password-stdin 652346858599.dkr.ecr.ap-southeast-2.amazonaws.com"),
+              ("export IMAGE_TAG=" + $image_tag),
+              "docker compose -f compose.prod.yml pull api",
+              "docker compose -f compose.prod.yml up -d",
+              "docker compose -f compose.prod.yml exec -T api uv run alembic upgrade head",
+              "sleep 35",
+              "docker compose -f compose.prod.yml ps",
+              "docker inspect --format='\''API health: {{.State.Health.Status}}'\'' inventory-management-api-1",
+              "test \"$(docker inspect --format='\''{{.State.Health.Status}}'\'' inventory-management-api-1)\" = healthy"
+            ]')
+
+          echo "Sending deployment command to EC2..."
+
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "$EC2_INSTANCE_ID" \
             --document-name "AWS-RunShellScript" \
-            --parameters "commands=[
-              \"set -e\",
-              \"cd /home/ec2-user/inventory-management\",
-              \"aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin 652346858599.dkr.ecr.ap-southeast-2.amazonaws.com\",
-              \"export IMAGE_TAG=$IMAGE_TAG\",
-              \"docker compose -f compose.prod.yml pull api\",
-              \"docker compose -f compose.prod.yml up -d\",
-              \"docker compose -f compose.prod.yml exec -T api uv run alembic upgrade head\",
-              "sleep 35",
-              "docker compose -f compose.prod.yml ps",
-              "docker inspect --format='API health: {{.State.Health.Status}}' inventory-management-api-1",
-              "test \"$(docker inspect --format='{{.State.Health.Status}}' inventory-management-api-1)\" = \"healthy\""
-            ]" \
+            --parameters "commands=$COMMANDS" \
             --comment "Deploy $IMAGE_TAG to inventory-management" \
             --query "Command.CommandId" \
             --output text)
