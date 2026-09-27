@@ -116,7 +116,10 @@ jobs:
               \"docker compose -f compose.prod.yml pull api\",
               \"docker compose -f compose.prod.yml up -d\",
               \"docker compose -f compose.prod.yml exec -T api uv run alembic upgrade head\",
-              \"for i in \\$(seq 1 12); do STATUS=\\$(docker inspect --format='{{.State.Health.Status}}' inventory-management-api-1 2>/dev/null || true); echo \\\"API health: \\$STATUS\\\"; if [ \\\"\\$STATUS\\\" = \\\"healthy\\\" ]; then exit 0; fi; sleep 5; done; echo 'API failed to become healthy'; docker compose -f compose.prod.yml ps; docker compose -f compose.prod.yml logs --tail=50 api; exit 1\"
+              "sleep 35",
+              "docker compose -f compose.prod.yml ps",
+              "docker inspect --format='API health: {{.State.Health.Status}}' inventory-management-api-1",
+              "test \"$(docker inspect --format='{{.State.Health.Status}}' inventory-management-api-1)\" = \"healthy\""
             ]" \
             --comment "Deploy $IMAGE_TAG to inventory-management" \
             --query "Command.CommandId" \
