@@ -1,3 +1,4 @@
+import json
 import pytest
 
 from sqlalchemy.orm import Session
@@ -599,7 +600,8 @@ def test_get_product_caches_result(db_session: Session) -> None:
     cached = redis_client.get(f"product:{product.id}")
 
     assert cached is not None
-    assert "Laptop" in cached
+    data = json.loads(cached)
+    assert data["name"] == "Laptop"
 
 
 def test_get_product_uses_cache(

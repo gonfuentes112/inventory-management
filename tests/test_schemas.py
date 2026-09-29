@@ -19,11 +19,12 @@ def test_product_create_schema():
 
 
 def test_product_create_rejects_negative_price():
+    invalid_price: int = -100
     with pytest.raises(ValidationError):
         ProductCreate(
             name="Laptop",
             description="Development laptop",
-            price=-100,
+            price=invalid_price,
             quantity=10,
             owner_id=1,
             category_id=1,
@@ -82,7 +83,7 @@ def test_product_update_schema():
 
 
 def test_product_update_rejects_negative_price():
+    invalid_price: int = -100
+
     with pytest.raises(ValidationError):
-        ProductUpdate(
-            price=-100,
-        )
+        ProductUpdate(price=invalid_price)
