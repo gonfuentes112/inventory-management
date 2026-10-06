@@ -6,7 +6,6 @@ class ProductCreate(BaseModel):
     name: str = Field(min_length=1, max_length=200)
     description: str | None = None
     price: Decimal = Field(ge=Decimal("0"))
-    owner_id: int
     category_id: int
     quantity: int = Field(ge=0)
 
@@ -28,5 +27,4 @@ class ProductUpdate(BaseModel):
     description: str | None = None
     price: Decimal | None = Field(default=None, ge=Decimal("0"))
     quantity: int | None = Field(default=None, ge=0)
-    owner_id: int | None = None
     category_id: int | None = None

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from app.models.category import Category
 from app.models.user import User
 from app.repositories.product import ProductRepository
@@ -28,7 +29,7 @@ def test_create_product(db_session: Session) -> None:
     product = repository.create(
         name="Laptop",
         description="Development laptop",
-        price=1200.00,
+        price=Decimal(1200.00),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -36,7 +37,7 @@ def test_create_product(db_session: Session) -> None:
 
     assert product.name == "Laptop"
     assert product.description == "Development laptop"
-    assert product.price == 1200.00
+    assert product.price == Decimal("1200.00")
     assert product.owner_id == user.id
     assert product.category_id == category.id
 
@@ -60,7 +61,7 @@ def test_get_product_by_id(db_session: Session) -> None:
     product = repository.create(
         name="Laptop",
         description="Development laptop",
-        price=1200.00,
+        price=Decimal(1200.00),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -102,7 +103,7 @@ def test_get_all_products(db_session: Session) -> None:
     repository.create(
         name="Laptop",
         description="Development laptop",
-        price=1200.00,
+        price=Decimal(1200.00),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -111,7 +112,7 @@ def test_get_all_products(db_session: Session) -> None:
     repository.create(
         name="Keyboard",
         description="Mechanical keyboard",
-        price=100.00,
+        price=Decimal(100.00),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -145,7 +146,7 @@ def test_update_product(db_session: Session) -> None:
     product = repository.create(
         name="Laptop",
         description="Development laptop",
-        price=1200.00,
+        price=Decimal("1200.00"),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -157,7 +158,7 @@ def test_update_product(db_session: Session) -> None:
         product=product,
         name="Gaming Laptop",
         description="High-performance development laptop",
-        price=1800.00,
+        price=Decimal("1800.00"),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -190,7 +191,7 @@ def test_delete_product(db_session: Session) -> None:
     product = repository.create(
         name="Laptop",
         description="Development laptop",
-        price=1200.00,
+        price=Decimal("1200.00"),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -225,7 +226,7 @@ def test_update_product_partial(db_session: Session) -> None:
     product = repository.create(
         name="Laptop",
         description="Development laptop",
-        price=1200.00,
+        price=Decimal("1200.00"),
         quantity=10,
         owner_id=user.id,
         category_id=category.id,
@@ -258,7 +259,7 @@ def test_create_product_rollback(db_session: Session, test_data):
     product = repository.create(
         name="Rollback Product",
         description="This should not persist",
-        price=100.00,
+        price=Decimal(100.00),
         quantity=5,
         owner_id=test_data["user"].id,
         category_id=test_data["category"].id,

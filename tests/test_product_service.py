@@ -38,7 +38,7 @@ def test_create_product(db_session: Session) -> None:
         category_id=category.id,
     )
 
-    product = service.create_product(data)
+    product = service.create_product(data=data, current_user_id=user.id)
 
     assert product.id is not None
     assert product.name == "Laptop"
@@ -73,7 +73,7 @@ def test_get_product(db_session: Session) -> None:
         category_id=category.id,
     )
 
-    created_product = service.create_product(data)
+    created_product = service.create_product(data=data, current_user_id=user.id)
 
     product = service.get_product(created_product.id)
 
@@ -114,9 +114,9 @@ def test_get_products(db_session: Session) -> None:
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     service.create_product(
@@ -125,9 +125,9 @@ def test_get_products(db_session: Session) -> None:
             description="Mechanical keyboard",
             price=100.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     products = service.get_products()
@@ -159,9 +159,9 @@ def test_update_product(db_session: Session) -> None:
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     updated_product = service.update_product(
@@ -170,9 +170,9 @@ def test_update_product(db_session: Session) -> None:
             name="Gaming Laptop",
             description="High-performance laptop",
             price=1800.00,
-            owner_id=user.id,
             category_id=category.id,
         ),
+        current_user_id=user.id,
     )
 
     assert updated_product is not None
@@ -186,6 +186,7 @@ def test_update_product(db_session: Session) -> None:
 
 def test_update_product_returns_none_when_not_found(
     db_session: Session,
+    test_data: dict[str, User | Category],
 ) -> None:
     service = ProductService(db_session)
 
@@ -194,6 +195,7 @@ def test_update_product_returns_none_when_not_found(
         data=ProductUpdate(
             name="Updated Product",
         ),
+        current_user_id=test_data["user"].id,
     )
 
     assert result is None
@@ -221,9 +223,9 @@ def test_delete_product(db_session: Session) -> None:
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     result = service.delete_product(product.id)
@@ -240,28 +242,6 @@ def test_delete_product_returns_false_when_not_found(
     result = service.delete_product(999)
 
     assert result is False
-
-
-def test_create_product_fails_when_owner_not_found(
-    db_session: Session,
-) -> None:
-    service = ProductService(db_session)
-    assert service.user_repository.get_by_id(999) is None
-
-    data = ProductCreate(
-        name="Laptop",
-        description="Development laptop",
-        price=1200.00,
-        quantity=10,
-        owner_id=999,
-        category_id=1,
-    )
-
-    assert data.owner_id == 999
-    assert data.category_id == 1
-
-    with pytest.raises(ValueError, match="Owner not found"):
-        service.create_product(data)
 
 
 def test_create_product_fails_when_category_not_found(
@@ -289,35 +269,10 @@ def test_create_product_fails_when_category_not_found(
         category_id=999,
     )
 
-    assert data.owner_id == user.id
     assert data.category_id == 999
 
     with pytest.raises(ValueError, match="Category not found"):
-        service.create_product(data)
-
-
-def test_update_product_fails_when_owner_not_found(
-    db_session: Session,
-    test_data: dict[str, User | Category],
-) -> None:
-    service = ProductService(db_session)
-
-    product = service.create_product(
-        ProductCreate(
-            name="Laptop",
-            description="Development laptop",
-            price=1200.00,
-            quantity=10,
-            owner_id=test_data["user"].id,
-            category_id=test_data["category"].id,
-        )
-    )
-
-    with pytest.raises(ValueError, match="Owner not found"):
-        service.update_product(
-            product.id,
-            ProductUpdate(owner_id=999),
-        )
+        service.create_product(data=data, current_user_id=user.id)
 
 
 def test_update_product_fails_when_category_not_found(
@@ -332,15 +287,14 @@ def test_update_product_fails_when_category_not_found(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=test_data["user"].id,
             category_id=test_data["category"].id,
-        )
+        ),
+        current_user_id=test_data["user"].id,
     )
 
     with pytest.raises(ValueError, match="Category not found"):
         service.update_product(
-            product.id,
-            ProductUpdate(category_id=999),
+            product.id, ProductUpdate(category_id=999), test_data["user"].id
         )
 
 
@@ -366,9 +320,9 @@ def test_add_stock(db_session: Session) -> None:
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     updated_product = service.add_stock(
@@ -402,9 +356,9 @@ def test_remove_stock(db_session: Session) -> None:
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     updated_product = service.remove_stock(
@@ -440,9 +394,9 @@ def test_remove_stock_fails_when_insufficient_stock(
             description="Development laptop",
             price=1200.00,
             quantity=5,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     with pytest.raises(ValueError, match="Insufficient stock"):
@@ -478,9 +432,9 @@ def test_add_stock_rejects_non_positive_quantity(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     with pytest.raises(ValueError, match="Quantity must be greater than 0"):
@@ -522,9 +476,9 @@ def test_remove_stock_rejects_non_positive_quantity(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     with pytest.raises(ValueError, match="Quantity must be greater than 0"):
@@ -588,9 +542,9 @@ def test_get_product_caches_result(db_session: Session) -> None:
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     assert redis_client.get(f"product:{product.id}") is None
@@ -626,9 +580,9 @@ def test_get_product_uses_cache(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     service.get_product(product.id)
@@ -667,19 +621,16 @@ def test_update_product_invalidates_cache(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     service.get_product(product.id)
 
     assert redis_client.get(f"product:{product.id}") is not None
 
-    service.update_product(
-        product.id,
-        ProductUpdate(name="Gaming Laptop"),
-    )
+    service.update_product(product.id, ProductUpdate(name="Gaming Laptop"), user.id)
 
     assert redis_client.get(f"product:{product.id}") is None
 
@@ -706,9 +657,9 @@ def test_add_stock_invalidates_cache(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     service.get_product(product.id)
@@ -742,9 +693,9 @@ def test_remove_stock_invalidates_cache(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=user.id,
             category_id=category.id,
-        )
+        ),
+        current_user_id=user.id,
     )
 
     service.get_product(product.id)
@@ -768,9 +719,9 @@ def test_get_product_returns_cached_product(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=test_data["user"].id,
             category_id=test_data["category"].id,
-        )
+        ),
+        current_user_id=test_data["user"].id,
     )
 
     with patch("app.services.product.get_cached_product") as mock_get_cached:
@@ -797,9 +748,9 @@ def test_get_product_queries_database_on_cache_miss(
             description="Development laptop",
             price=1200.00,
             quantity=10,
-            owner_id=test_data["user"].id,
             category_id=test_data["category"].id,
-        )
+        ),
+        current_user_id=test_data["user"].id,
     )
 
     with (

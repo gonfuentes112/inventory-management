@@ -199,23 +199,6 @@ def test_create_product_validation(
     assert response.status_code == 422
 
 
-def test_create_product_owner_not_found(authenticated_client: TestClient):
-    response = authenticated_client.post(
-        "/products",
-        json={
-            "name": "Laptop",
-            "description": "Development laptop",
-            "price": 1200.00,
-            "quantity": 10,
-            "owner_id": 999,
-            "category_id": 1,
-        },
-    )
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Owner not found"
-
-
 def test_create_product_category_not_found(
     authenticated_client: TestClient,
     test_data: dict[str, User | Category],
@@ -234,35 +217,6 @@ def test_create_product_category_not_found(
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Category not found"
-
-
-def test_update_product_owner_not_found(
-    authenticated_client: TestClient,
-    test_data: dict[str, User | Category],
-):
-    create_response = authenticated_client.post(
-        "/products",
-        json={
-            "name": "Laptop",
-            "description": "Development laptop",
-            "price": 1200.00,
-            "quantity": 10,
-            "owner_id": test_data["user"].id,
-            "category_id": test_data["category"].id,
-        },
-    )
-
-    product_id = create_response.json()["id"]
-
-    response = authenticated_client.patch(
-        f"/products/{product_id}",
-        json={
-            "owner_id": 999,
-        },
-    )
-
-    assert response.status_code == 404
-    assert response.json()["detail"] == "Owner not found"
 
 
 def test_update_product_category_not_found(

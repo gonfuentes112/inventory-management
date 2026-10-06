@@ -19,10 +19,7 @@ class ProductService:
         self.user_repository = UserRepository(session)
         self.category_repository = CategoryRepository(session)
 
-    def create_product(self, data: ProductCreate) -> Product:
-        if self.user_repository.get_by_id(data.owner_id) is None:
-            raise ValueError("Owner not found")
-
+    def create_product(self, data: ProductCreate, *, current_user_id: int) -> Product:
         if self.category_repository.get_by_id(data.category_id) is None:
             raise ValueError("Category not found")
         product = self.repository.create(
@@ -30,7 +27,7 @@ class ProductService:
             description=data.description,
             price=data.price,
             quantity=data.quantity,
-            owner_id=data.owner_id,
+            owner_id=current_user_id,
             category_id=data.category_id,
         )
         self.session.commit()
@@ -68,14 +65,15 @@ class ProductService:
         self,
         product_id: int,
         data: ProductUpdate,
+        current_user_id,
     ) -> Product | None:
         product = self.repository.get_by_id(product_id)
 
         if product is None:
             return None
 
-        if data.owner_id is not None:
-            if self.user_repository.get_by_id(data.owner_id) is None:
+        if current_user_id is not None:
+            if self.user_repository.get_by_id(current_user_id) is None:
                 raise ValueError("Owner not found")
 
         if data.category_id is not None:
@@ -88,7 +86,7 @@ class ProductService:
             description=data.description,
             price=data.price,
             quantity=data.quantity,
-            owner_id=data.owner_id,
+            owner_id=current_user_id,
             category_id=data.category_id,
         )
         self.session.commit()
