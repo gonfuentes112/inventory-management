@@ -1,4 +1,7 @@
 import pytest
+
+from typing import TypedDict
+
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import Session
 
@@ -59,8 +62,13 @@ def db_session(db_engine: Engine) -> Generator[Session, None, None]:
         yield session
 
 
+class ProductTestData(TypedDict):
+    user: User
+    category: Category
+
+
 @pytest.fixture
-def test_data(db_session: Session) -> dict[str, User | Category]:
+def test_data(db_session: Session) -> ProductTestData:
     user = User(
         username="testuser",
         email="test@example.com",

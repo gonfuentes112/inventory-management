@@ -1,5 +1,8 @@
+from tests.conftest import ProductTestData
 import json
 import pytest
+from decimal import Decimal
+from app.core.security import hash_password
 
 from sqlalchemy.orm import Session
 
@@ -173,6 +176,7 @@ def test_update_product(db_session: Session) -> None:
             category_id=category.id,
         ),
         current_user_id=user.id,
+        is_admin=user.role == "admin",
     )
 
     assert updated_product is not None
@@ -186,7 +190,7 @@ def test_update_product(db_session: Session) -> None:
 
 def test_update_product_returns_none_when_not_found(
     db_session: Session,
-    test_data: dict[str, User | Category],
+    test_data: ProductTestData,
 ) -> None:
     service = ProductService(db_session)
 
@@ -196,6 +200,7 @@ def test_update_product_returns_none_when_not_found(
             name="Updated Product",
         ),
         current_user_id=test_data["user"].id,
+        is_admin=test_data["user"].role == "admin",
     )
 
     assert result is None
@@ -277,7 +282,7 @@ def test_create_product_fails_when_category_not_found(
 
 def test_update_product_fails_when_category_not_found(
     db_session: Session,
-    test_data: dict[str, User | Category],
+    test_data: ProductTestData,
 ) -> None:
     service = ProductService(db_session)
 
@@ -294,7 +299,10 @@ def test_update_product_fails_when_category_not_found(
 
     with pytest.raises(ValueError, match="Category not found"):
         service.update_product(
-            product.id, ProductUpdate(category_id=999), test_data["user"].id
+            product.id,
+            ProductUpdate(category_id=999),
+            current_user_id=test_data["user"].id,
+            is_admin=test_data["user"].role == "admin",
         )
 
 
@@ -328,6 +336,8 @@ def test_add_stock(db_session: Session) -> None:
     updated_product = service.add_stock(
         product_id=product.id,
         quantity=5,
+        current_user_id=user.id,
+        is_admin=user.role == "admin",
     )
 
     assert updated_product is not None
@@ -364,6 +374,8 @@ def test_remove_stock(db_session: Session) -> None:
     updated_product = service.remove_stock(
         product_id=product.id,
         quantity=3,
+        current_user_id=user.id,
+        is_admin=user.role == "admin",
     )
 
     assert updated_product is not None
@@ -403,6 +415,8 @@ def test_remove_stock_fails_when_insufficient_stock(
         service.remove_stock(
             product_id=product.id,
             quantity=6,
+            current_user_id=user.id,
+            is_admin=user.role == "admin",
         )
 
     assert product.quantity == 5
@@ -441,12 +455,16 @@ def test_add_stock_rejects_non_positive_quantity(
         service.add_stock(
             product_id=product.id,
             quantity=0,
+            current_user_id=user.id,
+            is_admin=user.role == "admin",
         )
 
     with pytest.raises(ValueError, match="Quantity must be greater than 0"):
         service.add_stock(
             product_id=product.id,
             quantity=-5,
+            current_user_id=user.id,
+            is_admin=user.role == "admin",
         )
 
     assert product.quantity == 10
@@ -485,38 +503,48 @@ def test_remove_stock_rejects_non_positive_quantity(
         service.remove_stock(
             product_id=product.id,
             quantity=0,
+            current_user_id=user.id,
+            is_admin=user.role == "admin",
         )
 
     with pytest.raises(ValueError, match="Quantity must be greater than 0"):
         service.remove_stock(
             product_id=product.id,
             quantity=-5,
+            current_user_id=user.id,
+            is_admin=user.role == "admin",
         )
 
     assert product.quantity == 10
 
 
 def test_add_stock_returns_none_when_product_not_found(
-    db_session: Session,
+    db_session: Session, test_data: ProductTestData
 ) -> None:
     service = ProductService(db_session)
-
+    user: User = test_data["user"]
     result = service.add_stock(
         product_id=999,
         quantity=5,
+        current_user_id=user.id,
+        is_admin=user.role == "admin",
     )
 
     assert result is None
 
 
 def test_remove_stock_returns_none_when_product_not_found(
-    db_session: Session,
+    db_session: Session, test_data: ProductTestData
 ) -> None:
     service = ProductService(db_session)
+
+    user: User = test_data["user"]
 
     result = service.remove_stock(
         product_id=999,
         quantity=5,
+        current_user_id=user.id,
+        is_admin=user.role == "admin",
     )
 
     assert result is None
@@ -630,7 +658,12 @@ def test_update_product_invalidates_cache(
 
     assert redis_client.get(f"product:{product.id}") is not None
 
-    service.update_product(product.id, ProductUpdate(name="Gaming Laptop"), user.id)
+    service.update_product(
+        product.id,
+        ProductUpdate(name="Gaming Laptop"),
+        current_user_id=user.id,
+        is_admin=user.role == "admin",
+    )
 
     assert redis_client.get(f"product:{product.id}") is None
 
@@ -666,7 +699,12 @@ def test_add_stock_invalidates_cache(
 
     assert redis_client.get(f"product:{product.id}") is not None
 
-    service.add_stock(product.id, 5)
+    service.add_stock(
+        product_id=product.id,
+        quantity=5,
+        current_user_id=user.id,
+        is_admin=user.role == "admin",
+    )
 
     assert redis_client.get(f"product:{product.id}") is None
 
@@ -702,7 +740,12 @@ def test_remove_stock_invalidates_cache(
 
     assert redis_client.get(f"product:{product.id}") is not None
 
-    service.remove_stock(product.id, 3)
+    service.remove_stock(
+        product.id,
+        3,
+        current_user_id=user.id,
+        is_admin=user.role == "admin",
+    )
 
     assert redis_client.get(f"product:{product.id}") is None
 
@@ -770,3 +813,86 @@ def test_get_product_queries_database_on_cache_miss(
     assert result.id == product.id
 
     mock_get_by_id.assert_called_once_with(product.id)
+
+
+def test_non_owner_cannot_update_product(
+    db_session: Session,
+    test_data: ProductTestData,
+) -> None:
+    owner = test_data["user"]
+    category = test_data["category"]
+
+    other_user = User(
+        username="otheruser",
+        email="other@example.com",
+        hashed_password=hash_password("otherpassword123"),
+        role="user",
+    )
+
+    db_session.add(other_user)
+    db_session.commit()
+    db_session.refresh(other_user)
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=Decimal("1200.00"),
+            quantity=10,
+            category_id=category.id,
+        ),
+        current_user_id=owner.id,
+    )
+
+    with pytest.raises(PermissionError, match="Not authorized"):
+        service.update_product(
+            product.id,
+            ProductUpdate(name="Hacked Laptop"),
+            current_user_id=other_user.id,
+            is_admin=False,
+        )
+
+
+def test_admin_can_update_product(
+    db_session: Session,
+    test_data: ProductTestData,
+) -> None:
+    owner = test_data["user"]
+    category = test_data["category"]
+
+    admin = User(
+        username="admin",
+        email="admin@example.com",
+        hashed_password=hash_password("adminpassword123"),
+        role="admin",
+    )
+
+    db_session.add(admin)
+    db_session.commit()
+    db_session.refresh(admin)
+
+    service = ProductService(db_session)
+
+    product = service.create_product(
+        ProductCreate(
+            name="Laptop",
+            description="Development laptop",
+            price=Decimal("1200.00"),
+            quantity=10,
+            category_id=category.id,
+        ),
+        current_user_id=owner.id,
+    )
+
+    updated_product = service.update_product(
+        product.id,
+        ProductUpdate(name="Admin Updated Laptop"),
+        current_user_id=admin.id,
+        is_admin=True,
+    )
+
+    assert updated_product is not None
+    assert updated_product.name == "Admin Updated Laptop"
+    assert updated_product.owner_id == owner.id

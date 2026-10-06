@@ -160,7 +160,6 @@ def test_update_product(db_session: Session) -> None:
         description="High-performance development laptop",
         price=Decimal("1800.00"),
         quantity=10,
-        owner_id=user.id,
         category_id=category.id,
     )
 
@@ -240,7 +239,6 @@ def test_update_product_partial(db_session: Session) -> None:
         description=None,
         price=None,
         quantity=None,
-        owner_id=None,
         category_id=None,
     )
 

@@ -50,7 +50,6 @@ class ProductRepository:
         description: str | None,
         price: Decimal | None,
         quantity: int | None,
-        owner_id: int | None,
         category_id: int | None,
     ) -> Product:
         if name is not None:
@@ -64,9 +63,6 @@ class ProductRepository:
 
         if quantity is not None:
             product.quantity = quantity
-
-        if owner_id is not None:
-            product.owner_id = owner_id
 
         if category_id is not None:
             product.category_id = category_id

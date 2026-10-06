@@ -65,16 +65,17 @@ class ProductService:
         self,
         product_id: int,
         data: ProductUpdate,
-        current_user_id,
+        *,
+        current_user_id: int,
+        is_admin: bool,
     ) -> Product | None:
         product = self.repository.get_by_id(product_id)
 
         if product is None:
             return None
 
-        if current_user_id is not None:
-            if self.user_repository.get_by_id(current_user_id) is None:
-                raise ValueError("Owner not found")
+        if product.owner_id != current_user_id and not is_admin:
+            raise PermissionError("Not authorized to update this product")
 
         if data.category_id is not None:
             if self.category_repository.get_by_id(data.category_id) is None:
@@ -86,7 +87,6 @@ class ProductService:
             description=data.description,
             price=data.price,
             quantity=data.quantity,
-            owner_id=current_user_id,
             category_id=data.category_id,
         )
         self.session.commit()
@@ -116,11 +116,17 @@ class ProductService:
         self,
         product_id: int,
         quantity: int,
+        *,
+        current_user_id: int,
+        is_admin: bool,
     ) -> Product | None:
         product = self.repository.get_by_id(product_id)
 
         if product is None:
             return None
+
+        if product.owner_id != current_user_id and not is_admin:
+            raise PermissionError("Not authorized to modify this product")
 
         if quantity <= 0:
             raise ValueError("Quantity must be greater than 0")
@@ -138,11 +144,16 @@ class ProductService:
         self,
         product_id: int,
         quantity: int,
+        *,
+        current_user_id: int,
+        is_admin: bool,
     ) -> Product | None:
         product = self.repository.get_by_id(product_id)
 
         if product is None:
             return None
+        if product.owner_id != current_user_id and not is_admin:
+            raise PermissionError("Not authorized to modify this product")
 
         if quantity <= 0:
             raise ValueError("Quantity must be greater than 0")

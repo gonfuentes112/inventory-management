@@ -70,7 +70,14 @@ def add_stock(
         product = service.add_stock(
             product_id=product_id,
             quantity=data.quantity,
+            current_user_id=current_user.id,
+            is_admin=current_user.role == "admin",
         )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -100,7 +107,14 @@ def remove_stock(
         product = service.remove_stock(
             product_id=product_id,
             quantity=data.quantity,
+            current_user_id=current_user.id,
+            is_admin=current_user.role == "admin",
         )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -147,13 +161,21 @@ def update_product(
 ):
     try:
         product = service.update_product(
-            product_id, data, current_user_id=current_user.id
+            product_id,
+            data,
+            current_user_id=current_user.id,
+            is_admin=current_user.role == "admin",
         )
+    except PermissionError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
-        )
+        ) from exc
 
     if product is None:
         raise HTTPException(
