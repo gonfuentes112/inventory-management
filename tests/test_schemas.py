@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic import ValidationError
 import pytest
 
@@ -78,7 +79,7 @@ def test_product_update_schema():
 
     assert product.name is None
     assert product.description is None
-    assert product.price == 999.99
+    assert product.price == Decimal("999.99")
     assert product.category_id is None
 
 

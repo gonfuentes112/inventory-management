@@ -1,3 +1,4 @@
+from decimal import Decimal
 from fastapi.testclient import TestClient
 from app.models.category import Category
 from app.models.user import User
@@ -27,7 +28,7 @@ def test_create_product(
     data = response.json()
 
     assert data["name"] == "Laptop"
-    assert data["price"] == 1200.00
+    assert data["price"] == "1200.00"
 
 
 def test_create_product_requires_authentication(client: TestClient):
@@ -147,7 +148,7 @@ def test_update_product(
 
     assert data["name"] == "Gaming Laptop"
     assert data["description"] == "Development laptop"
-    assert data["price"] == 1800.00
+    assert data["price"] == "1800.00"
     assert data["quantity"] == 10
     assert data["owner_id"] == test_data["user"].id
     assert data["category_id"] == test_data["category"].id

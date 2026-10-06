@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy import ForeignKey, Numeric, String, Text, CheckConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -22,7 +23,9 @@ class Product(Base):
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    price: Mapped[float] = mapped_column(Numeric(100, 2), nullable=False, default=0)
+    price: Mapped[Decimal] = mapped_column(
+        Numeric(100, 2), nullable=False, default=Decimal("0.00")
+    )
 
     owner_id: Mapped[int] = mapped_column(
         ForeignKey("users.id"),

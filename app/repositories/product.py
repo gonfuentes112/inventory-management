@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,7 +21,7 @@ class ProductRepository:
         self,
         name: str,
         description: str | None,
-        price: float,
+        price: Decimal,
         quantity: int,
         owner_id: int,
         category_id: int,
@@ -47,7 +48,7 @@ class ProductRepository:
         product: Product,
         name: str | None,
         description: str | None,
-        price: float | None,
+        price: Decimal | None,
         quantity: int | None,
         owner_id: int | None,
         category_id: int | None,
