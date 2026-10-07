@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from .product import Product
+    from .order import Order
 
 
 class User(Base):
@@ -23,3 +24,6 @@ class User(Base):
     )
 
     products: Mapped[list["Product"]] = relationship(back_populates="owner")
+    orders: Mapped[list["Order"]] = relationship(
+    back_populates="user",
+    )
