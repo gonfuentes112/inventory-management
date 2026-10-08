@@ -1,6 +1,8 @@
 # Inventory Management API
 
-A production-oriented inventory management REST API built with FastAPI, PostgreSQL, Redis, Docker, AWS, and GitHub Actions.
+A production-oriented inventory management REST API built with **FastAPI, PostgreSQL, Redis, Docker, and GitHub Actions**.
+
+The project focuses on practical backend engineering: layered architecture, authentication and authorization, transactional database operations, concurrency control, caching, API pagination/filtering, automated testing, database migrations, containerization, CI/CD, and production-oriented error handling.
 
 **Languages:** [English](#english) | [日本語](#日本語)
 
@@ -12,101 +14,405 @@ A production-oriented inventory management REST API built with FastAPI, PostgreS
 
 ## Overview
 
-**Inventory Management API** is a backend application designed to manage products, categories, users, and inventory quantities through a RESTful API.
+**Inventory Management API** is a backend application for managing users, categories, products, inventory quantities, and orders through a RESTful API.
 
-The project was developed with a focus on practical backend engineering, including layered application architecture, authentication and authorization, database migrations, caching, background processing, automated testing, containerization, and cloud deployment.
+The project was built to demonstrate backend engineering beyond basic CRUD operations, with particular focus on:
 
-The application is deployed to **AWS EC2** using Docker and is automatically tested and deployed through **GitHub Actions**.
+* Secure authentication and authorization
+* Object-level ownership checks
+* Transactional order processing
+* PostgreSQL concurrency control
+* Database constraints and indexes
+* Redis caching with graceful failure handling
+* Pagination, filtering, and sorting
+* Automated testing
+* Containerized development
+* CI/CD and production deployment
+* Health checks and error handling
 
-[⬆ Back to top](#inventory-management-api)
+---
 
-## Features
+## Key Features
 
-* User registration and management
+### Authentication & Authorization
+
 * JWT-based authentication
-* Password hashing with Argon2
+* Argon2 password hashing
 * Role-based access control (RBAC)
-* Product management
+* Authentication dependencies
+* Admin-only operations
+* Object-level authorization for user-owned products
+* Protection against cross-user access / IDOR
+
+### Product & Inventory Management
+
+* Product CRUD
 * Category management
+* Product ownership
 * Inventory quantity management
-* PostgreSQL database
-* SQLAlchemy ORM
-* Alembic database migrations
-* Redis caching
-* Background tasks
-* Pydantic request/response validation
-* Repository and service layers
-* Automated testing with pytest
-* Dockerized development and production environments
-* GitHub Actions CI/CD
-* AWS ECR container image storage
-* AWS EC2 deployment
-* AWS Systems Manager for remote deployment
+* Stock addition and removal
+* PostgreSQL `CHECK` constraint preventing negative inventory
+* Product pagination
+* Category and price filtering
+* Sorting by product attributes
+
+### Orders
+
+* Order and OrderItem models
+* Server-side price calculation
+* Transactional order creation
+* Automatic inventory deduction
+* Order ownership protection
+* Order pagination
+* Atomic rollback on failure
+* PostgreSQL row-level locking with `SELECT ... FOR UPDATE`
+* Protection against concurrent overselling
+
+### Database
+
+* PostgreSQL 16
+* SQLAlchemy 2
+* Alembic migrations
+* Decimal monetary values
+* Foreign-key relationships
+* Database-level inventory constraints
+* Query-oriented indexes
+
+### Caching
+
+* Redis product caching
+* Cache expiration with TTL
+* Cache invalidation after product mutations
+* Cache invalidation after order-based stock changes
+* Graceful fallback when Redis is unavailable
+* Invalid cache data treated as a cache miss
+* Database remains the source of truth
+
+### Testing
+
+* pytest
+* API tests
+* Service tests
+* Repository tests
+* Schema validation tests
+* Authentication and security tests
+* Redis failure tests
+* Transaction rollback tests
+* Health-check tests
+* PostgreSQL concurrency testing
+* **143 collected tests**
+
+### Infrastructure
+
+* Docker
+* Docker Compose
+* GitHub Actions
+* AWS ECR
+* AWS EC2
+* AWS Systems Manager
 * Application health checks
+* Environment-based configuration
 
-[⬆ Back to top](#inventory-management-api)
+---
 
-## Tech Stack
+## Technical Highlights
 
-| Category           | Technologies              |
-| ------------------ | ------------------------- |
-| Language           | Python 3.13               |
-| Framework          | FastAPI                   |
-| Database           | PostgreSQL 16             |
-| ORM                | SQLAlchemy                |
-| Migrations         | Alembic                   |
-| Validation         | Pydantic                  |
-| Authentication     | JWT, Argon2               |
-| Cache              | Redis 7                   |
-| Testing            | pytest                    |
-| Package Management | uv                        |
-| Containerization   | Docker, Docker Compose    |
-| CI/CD              | GitHub Actions            |
-| Cloud              | AWS                       |
-| Container Registry | Amazon ECR                |
-| Compute            | Amazon EC2                |
-| Remote Deployment  | AWS Systems Manager (SSM) |
+The main goal of this project was not simply to connect FastAPI to PostgreSQL.
 
-[⬆ Back to top](#inventory-management-api)
+Several features were specifically implemented to address realistic backend problems.
+
+### 1. Transactional Order Creation
+
+Creating an order modifies several pieces of data:
+
+```text
+Product stock
+      │
+      ▼
+Create Order
+      │
+      ▼
+Create OrderItems
+      │
+      ▼
+Commit transaction
+```
+
+All of these operations occur within the same database transaction.
+
+If an error occurs during the operation, the transaction is rolled back so that inventory cannot be reduced while the corresponding order fails to be created.
+
+---
+
+### 2. Concurrency Control
+
+Inventory updates can become incorrect when multiple requests attempt to purchase the same product simultaneously.
+
+For order creation, product rows are locked using PostgreSQL row-level locking:
+
+```sql
+SELECT ...
+FROM products
+WHERE id = ...
+FOR UPDATE;
+```
+
+The application locks products in a consistent order before modifying their quantities.
+
+Conceptually:
+
+```text
+Request A                    Request B
+    │                            │
+    ▼                            ▼
+Lock product                 Wait for lock
+    │                            │
+    ▼                            │
+Check stock                     │
+    │                            │
+    ▼                            │
+Decrease stock                  │
+    │                            │
+    ▼                            │
+Commit                          │
+                                 ▼
+                            Read current stock
+                                 │
+                                 ▼
+                           Check stock again
+                                 │
+                                 ▼
+                         Reject if insufficient
+```
+
+A PostgreSQL concurrency test verifies that two simultaneous orders cannot oversell the final unit of inventory.
+
+---
+
+### 3. Database-Level Integrity
+
+Application validation is not the only line of defense.
+
+The `products` table also enforces:
+
+```text
+quantity >= 0
+```
+
+at the PostgreSQL level.
+
+This protects the database even if an application-level validation path is accidentally bypassed.
+
+---
+
+### 4. Query-Oriented Indexes
+
+Indexes were added based on actual query patterns rather than indexing every column.
+
+Current indexes include:
+
+```text
+products(category_id)
+
+orders(user_id, created_at, id)
+
+order_items(order_id)
+```
+
+The order index supports the user's paginated order query:
+
+```sql
+WHERE user_id = ?
+ORDER BY created_at DESC, id DESC
+```
+
+The `order_items(order_id)` index supports loading order items efficiently.
+
+The project deliberately avoids unnecessary indexes where the current workload does not justify them.
+
+---
+
+### 5. Redis as an Optimization, Not the Source of Truth
+
+Redis is used to accelerate product reads, but PostgreSQL remains authoritative.
+
+The cache flow is:
+
+```text
+GET product
+     │
+     ▼
+Redis
+ ┌───┴────┐
+Hit      Miss
+ │         │
+ ▼         ▼
+Return   PostgreSQL
+           │
+           ▼
+        Cache result
+```
+
+Redis failures do not make the API unavailable.
+
+For example:
+
+```text
+Redis GET fails
+      │
+      ▼
+Treat as cache miss
+      │
+      ▼
+Read PostgreSQL
+      │
+      ▼
+Return product
+```
+
+Cache writes and invalidation failures are also treated as non-fatal because Redis is an optimization rather than the system of record.
+
+---
+
+### 6. Cache Invalidation
+
+Product mutations invalidate the corresponding cached product.
+
+This includes:
+
+* Product updates
+* Product deletion
+* Stock additions
+* Stock removals
+* Order-based inventory reductions
+
+Order processing therefore follows:
+
+```text
+Create order
+     │
+     ▼
+Decrease stock
+     │
+     ▼
+Commit PostgreSQL transaction
+     │
+     ▼
+Invalidate affected product cache
+```
+
+The database transaction is completed before cache invalidation.
+
+---
+
+### 7. Object-Level Authorization
+
+Authentication alone is not sufficient.
+
+A user may be authenticated but still must not be able to modify another user's product.
+
+Product operations therefore verify ownership:
+
+```text
+Authenticated user
+       │
+       ▼
+Is owner?
+   ┌───┴───┐
+  Yes      No
+   │        │
+   ▼        ▼
+Allow    Is admin?
+             │
+          ┌──┴──┐
+         Yes    No
+          │      │
+          ▼      ▼
+        Allow   403
+```
+
+This prevents IDOR-style access where a user attempts to manipulate another user's resource simply by changing an object ID.
+
+---
 
 ## Architecture
 
-The application follows a layered backend architecture:
+The application uses a layered backend architecture:
 
 ```text
-Client
-  │
-  ▼
-FastAPI API
-  │
-  ▼
-API / Dependencies
-  │
-  ▼
-Services
-  │
-  ▼
-Repositories
-  │
-  ├──────────────► PostgreSQL
-  │
-  └──────────────► Redis
+                    Client
+                      │
+                      ▼
+                FastAPI API
+                      │
+                      ▼
+              API / Dependencies
+                      │
+                      ▼
+                  Services
+                      │
+                      ▼
+                Repositories
+                  │       │
+                  ▼       ▼
+             PostgreSQL  Redis
 ```
 
-The main application layers are separated by responsibility:
+### API Layer
 
-* **API layer** handles HTTP requests, responses, and dependency injection.
-* **Service layer** contains business logic.
-* **Repository layer** handles database operations.
-* **Model layer** defines SQLAlchemy database models.
-* **Schema layer** defines Pydantic request and response models.
-* **Core layer** contains configuration, security, and application roles.
-* **Cache layer** provides Redis-based caching.
-* **Task layer** contains background processing.
+Responsible for:
 
-This separation keeps business logic independent from HTTP and database-specific concerns.
+* HTTP requests and responses
+* Request validation
+* HTTP status codes
+* Dependency injection
+* Authentication/authorization boundaries
 
-[⬆ Back to top](#inventory-management-api)
+### Service Layer
+
+Responsible for:
+
+* Business rules
+* Transactions
+* Authorization checks
+* Inventory operations
+* Order processing
+* Cache coordination
+
+### Repository Layer
+
+Responsible for:
+
+* Database queries
+* Persistence
+* PostgreSQL-specific operations
+
+### Model Layer
+
+Defines SQLAlchemy database models and relationships.
+
+### Schema Layer
+
+Defines Pydantic request and response models.
+
+### Core Layer
+
+Contains:
+
+* Application configuration
+* Security utilities
+* Roles
+* Authentication-related functionality
+
+### Cache Layer
+
+Contains Redis caching and cache invalidation logic.
+
+### Task Layer
+
+Contains background processing for operations that do not need to block the main HTTP response.
+
+---
 
 ## Project Structure
 
@@ -116,6 +422,7 @@ inventory-management/
 │   ├── api/
 │   │   ├── category.py
 │   │   ├── dependencies.py
+│   │   ├── orders.py
 │   │   ├── products.py
 │   │   └── users.py
 │   │
@@ -133,22 +440,27 @@ inventory-management/
 │   │
 │   ├── models/
 │   │   ├── category.py
+│   │   ├── order.py
 │   │   ├── product.py
 │   │   └── user.py
 │   │
 │   ├── repositories/
 │   │   ├── category.py
+│   │   ├── order.py
 │   │   ├── product.py
 │   │   └── user.py
 │   │
 │   ├── schemas/
 │   │   ├── category.py
 │   │   ├── inventory.py
+│   │   ├── order.py
+│   │   ├── pagination.py
 │   │   ├── product.py
 │   │   └── user.py
 │   │
 │   ├── services/
 │   │   ├── category.py
+│   │   ├── order.py
 │   │   ├── product.py
 │   │   └── user.py
 │   │
@@ -162,18 +474,17 @@ inventory-management/
 │   └── env.py
 │
 ├── tests/
+│   ├── api/
+│   ├── cache/
+│   ├── service/
 │   ├── test_auth.py
-│   ├── test_category_api.py
-│   ├── test_category_service.py
-│   ├── test_product_service.py
-│   ├── test_products_api.py
+│   ├── test_health.py
+│   ├── test_order_concurrency.py
 │   ├── test_product_tasks.py
 │   ├── test_repositories.py
 │   ├── test_schemas.py
 │   ├── test_security.py
-│   ├── test_user.py
-│   ├── test_user_api.py
-│   └── test_user_service.py
+│   └── ...
 │
 ├── .github/
 │   └── workflows/
@@ -182,199 +493,275 @@ inventory-management/
 ├── Dockerfile
 ├── compose.yml
 ├── alembic.ini
+├── env.example
 ├── pyproject.toml
 └── uv.lock
 ```
 
-Production-only configuration files containing deployment settings and secrets are intentionally excluded from the repository.
+Production-only configuration and secrets are intentionally excluded from the repository.
 
-[⬆ Back to top](#inventory-management-api)
+---
 
 ## Authentication & Authorization
 
-Authentication is implemented using JSON Web Tokens (JWT).
+Authentication uses JSON Web Tokens (JWT).
 
-Passwords are securely hashed using **Argon2** before being stored in the database.
+Passwords are hashed with **Argon2** before being stored in PostgreSQL.
 
-The application also implements role-based access control (RBAC), allowing API operations to be restricted according to the authenticated user's role.
+Authorization includes both role-level and object-level controls.
 
-The security layer includes:
+Security-related functionality includes:
 
 * Password hashing
 * Password verification
 * JWT access-token generation
-* JWT token validation
+* JWT validation
 * Authentication dependencies
 * Role-based authorization
+* Product ownership checks
+* Cross-user resource protection
+* Request validation
+* Database integrity constraints
 
-[⬆ Back to top](#inventory-management-api)
+Login failures intentionally return the same message for an invalid username or password rather than revealing whether a particular account exists.
 
-## Inventory Management
+---
 
-Products contain inventory quantities that can be created and updated through the API.
+## API Design
 
-The database also enforces a non-negative quantity constraint:
+The API supports operations for:
 
 ```text
-quantity >= 0
+/users
+/users/login
+
+/categories
+/categories/{category_id}
+
+/products
+/products/{product_id}
+/products/{product_id}/stock/add
+/products/{product_id}/stock/remove
+
+/orders
+/orders/{order_id}
 ```
 
-This constraint is enforced at the PostgreSQL level in addition to application-level validation.
+Product and order collection endpoints support pagination.
 
-The project uses Alembic to maintain the database schema through versioned migrations.
+Product listing additionally supports:
 
-[⬆ Back to top](#inventory-management-api)
+* Category filtering
+* Minimum price
+* Maximum price
+* Sorting
+* Sort direction
 
-## Caching & Background Tasks
+Pagination responses include:
 
-Redis is used as a caching layer for product-related operations.
+```json
+{
+  "items": [],
+  "total": 0,
+  "page": 1,
+  "page_size": 20,
+  "pages": 0
+}
+```
 
-The project also includes background task processing for operations that do not need to block the main HTTP response.
+---
 
-This demonstrates the use of external infrastructure beyond the primary relational database.
+## Error Handling
 
-[⬆ Back to top](#inventory-management-api)
+Expected business errors are converted into appropriate HTTP responses at the API boundary.
+
+Examples include:
+
+```text
+400 Bad Request
+403 Forbidden
+404 Not Found
+409 Conflict
+503 Service Unavailable
+```
+
+Unexpected exceptions are not returned directly to clients.
+
+The health endpoint specifically reports database unavailability as:
+
+```text
+503 Service Unavailable
+```
+
+while the server records the underlying exception for troubleshooting.
+
+---
 
 ## Database & Migrations
 
-The application uses:
+The project uses:
 
 * **PostgreSQL 16** for persistent data
-* **SQLAlchemy 2** for ORM/database access
+* **SQLAlchemy 2** for database access
 * **Alembic** for schema migrations
 
-The migration history is version controlled and supports both upgrades and downgrades.
+Database migrations are version controlled and support upgrades and downgrades.
 
-The migration chain includes changes for:
+The schema includes:
 
-* Initial database tables
-* Product pricing
-* User password hashes
-* User roles
-* Product quantities
-* Product quantity constraints
+* Users
+* Categories
+* Products
+* Orders
+* Order items
+* Foreign-key relationships
+* Unique constraints
+* Inventory constraints
+* Query-oriented indexes
 
-The production deployment automatically runs:
+Monetary values are represented using decimal database types rather than floating-point values.
 
-```bash
-uv run alembic upgrade head
-```
-
-before the final application health verification.
-
-[⬆ Back to top](#inventory-management-api)
+---
 
 ## Testing
 
-The project uses **pytest** for automated testing.
+The project uses **pytest** with tests covering multiple layers of the application.
 
-Tests cover multiple application layers, including:
+The current suite contains **143 collected tests**.
+
+Coverage includes:
 
 * API endpoints
+* Authentication
+* Authorization
+* IDOR protection
 * Services
 * Repositories
 * Schemas
-* Authentication
-* Security
-* Background tasks
+* Security utilities
+* Redis cache behavior
+* Redis failure handling
+* Cache invalidation
+* Transaction rollback
+* Order processing
+* Pagination
+* Filtering and sorting
+* Database constraints
+* Health checks
+* PostgreSQL concurrency
 
-The test environment uses PostgreSQL and Redis services in CI.
+A particularly important test verifies that concurrent order requests cannot oversell inventory.
 
-Tests are executed automatically for pull requests and pushes to `main`.
+The test suite uses SQLite for many fast unit/service tests and PostgreSQL for PostgreSQL-specific behavior such as concurrency testing.
 
-[⬆ Back to top](#inventory-management-api)
+CI also runs the application against PostgreSQL and Redis services.
+
+Run the complete test suite with:
+
+```bash
+uv run pytest
+```
+
+---
+
+## Health Checks & Observability
+
+The application provides:
+
+```text
+GET /health
+```
+
+The health check verifies that the application can successfully communicate with PostgreSQL.
+
+Successful response:
+
+```json
+{
+  "status": "ok"
+}
+```
+
+If PostgreSQL is unavailable, the endpoint returns:
+
+```text
+503 Service Unavailable
+```
+
+Unexpected health-check failures are logged server-side with their exception traceback while exposing only a safe error message to the client.
+
+---
 
 ## Docker
 
-The application can be run using Docker Compose with:
+Docker Compose can be used to run the application infrastructure locally.
 
-* FastAPI application
+The development environment includes:
+
+* FastAPI
 * PostgreSQL
 * Redis
 
-The API container includes a healthcheck that verifies application availability and database connectivity.
+For local development, PostgreSQL and Redis can also be started independently:
 
-The production deployment uses a separate Compose configuration that pulls the application image from Amazon ECR.
+```bash
+docker compose up -d db redis
+```
 
-[⬆ Back to top](#inventory-management-api)
+The API can then be run directly with Python and `uv`.
+
+---
 
 ## CI/CD
 
-GitHub Actions is used to automate testing and deployment.
+GitHub Actions is used to automate testing and Docker image builds.
 
-The pipeline follows this process:
+The CI workflow verifies the application before changes are merged.
 
-```text
-Push / Pull Request
-        │
-        ▼
-Install dependencies
-        │
-        ▼
-Run tests
-        │
-        ▼
-Build Docker image
-        │
-        ▼
-       main
-        │
-        ▼
-Push image to Amazon ECR
-        │
-        ▼
-Deploy to EC2 through AWS SSM
-        │
-        ▼
-Run Alembic migrations
-        │
-        ▼
-Verify API health
-```
+The deployment configuration also supports publishing Docker images to Amazon ECR and deploying to Amazon EC2 through AWS Systems Manager.
 
-Pull requests run the test and Docker build stages.
+Docker images can be tagged using the Git commit SHA, providing traceability between source code and built images.
 
-Pushes to `main` additionally trigger the deployment process.
-
-Docker images are tagged using the Git commit SHA, providing traceability between source code and deployed versions.
-
-[⬆ Back to top](#inventory-management-api)
+---
 
 ## AWS Deployment
 
-The application is deployed using the following AWS services:
+AWS deployment was implemented as part of the project to gain practical experience with container deployment and remote infrastructure management.
+
+The deployment architecture uses:
 
 ```text
 GitHub Actions
       │
       ▼
-Amazon ECR
+ Amazon ECR
       │
       ▼
-Amazon EC2
+ Amazon EC2
       │
       ├── FastAPI
       ├── PostgreSQL
       └── Redis
 ```
 
-AWS Systems Manager (SSM) is used to execute deployment commands on the EC2 instance.
+AWS Systems Manager (SSM) is used for remote deployment operations.
 
-The deployment process:
+The deployment process includes:
 
-1. Builds the Docker image.
-2. Pushes the image to Amazon ECR.
-3. Connects to the EC2 instance through SSM.
-4. Pulls the new image.
-5. Starts the application containers.
-6. Applies pending Alembic migrations.
-7. Checks the application health status.
+1. Build the Docker image
+2. Push the image to Amazon ECR
+3. Deploy the image to EC2
+4. Start the application containers
+5. Apply pending Alembic migrations
+6. Verify application health
 
-[⬆ Back to top](#inventory-management-api)
+AWS deployment is intentionally treated as an infrastructure component of the project rather than a requirement for local development.
+
+---
 
 ## API Documentation
 
-When the application is running, FastAPI automatically provides interactive API documentation.
+FastAPI automatically provides interactive API documentation.
 
 ### Swagger UI
 
@@ -388,21 +775,13 @@ http://localhost:8000/docs
 http://localhost:8000/redoc
 ```
 
-The API also provides a health endpoint:
+### Health Check
 
 ```text
 GET /health
 ```
 
-Example response:
-
-```json
-{
-  "status": "ok"
-}
-```
-
-[⬆ Back to top](#inventory-management-api)
+---
 
 ## Local Development
 
@@ -428,7 +807,7 @@ Copy the example environment file:
 cp env.example .env
 ```
 
-Adjust the values for your local environment if necessary.
+Adjust the values for the local environment if necessary.
 
 ### 3. Start PostgreSQL and Redis
 
@@ -466,11 +845,13 @@ Swagger UI:
 http://localhost:8000/docs
 ```
 
-[⬆ Back to top](#inventory-management-api)
+---
 
 ## Environment Variables
 
 Create a `.env` file based on `env.example`.
+
+Example:
 
 ```env
 DATABASE_URL=postgresql+psycopg://inventory:inventory@db:5432/inventory
@@ -480,22 +861,49 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 REDIS_URL=redis://redis:6379/0
 ```
 
-Do not commit `.env` or other files containing real credentials or secrets.
+Never commit real credentials, JWT secrets, or other sensitive configuration to the repository.
 
-[⬆ Back to top](#inventory-management-api)
+---
 
-## Future Improvements
+## Engineering Decisions
 
-Potential future improvements include:
+Some of the main design decisions in this project are intentional tradeoffs.
 
-* More comprehensive integration tests
-* Additional inventory operations
-* Monitoring and observability
-* More granular authorization policies
-* Production database separation from the application host
-* Additional automated deployment safeguards
+### PostgreSQL is the source of truth
 
-[⬆ Back to top](#inventory-management-api)
+Redis improves read performance but is not required for correctness.
+
+### Transactions protect multi-step operations
+
+Order creation and inventory changes must succeed or fail together.
+
+### Row locking protects shared inventory
+
+`SELECT ... FOR UPDATE` prevents concurrent requests from making decisions based on stale stock values.
+
+### Database constraints provide a second line of defense
+
+The application validates inventory quantities, while PostgreSQL independently enforces `quantity >= 0`.
+
+### Indexes are based on query patterns
+
+Indexes were added for known filtering, pagination, and relationship-loading queries rather than indiscriminately indexing columns.
+
+### Business logic belongs in services
+
+The API layer translates business results into HTTP responses while the service layer owns application rules and transaction boundaries.
+
+### Unexpected errors are not exposed
+
+Clients receive safe error messages while server-side logs retain diagnostic information.
+
+---
+
+## Project Status
+
+This project is considered the completed backend project in my portfolio roadmap.
+
+The next portfolio project is a separate **React + TypeScript inventory administration frontend** that consumes this API.
 
 ---
 
@@ -505,292 +913,411 @@ Potential future improvements include:
 
 ## 概要
 
-**Inventory Management API** は、FastAPI、PostgreSQL、Redis、Docker、AWS、GitHub Actionsを使用して開発した、在庫管理用のREST APIです。
+**Inventory Management API** は、**FastAPI、PostgreSQL、Redis、Docker、GitHub Actions** を使用して開発した在庫管理用のREST APIです。
 
-商品、カテゴリー、ユーザー、在庫数量などをAPIから管理できます。
+ユーザー、カテゴリー、商品、在庫数量、注文などをAPIから管理できます。
 
-実践的なバックエンド開発を意識し、レイヤードアーキテクチャ、認証・認可、データベースマイグレーション、キャッシュ、バックグラウンド処理、自動テスト、コンテナ化、クラウドデプロイなどを実装しています。
+単純なCRUDだけではなく、実践的なバックエンド開発を意識し、以下のような機能を実装しています。
 
-アプリケーションは **AWS EC2** 上でDockerを使用して稼働し、**GitHub Actions** によるCI/CDパイプラインを利用して自動テストおよびデプロイを行います。
+* 認証・認可
+* オブジェクト単位のアクセス制御
+* トランザクション処理
+* 同時実行制御
+* PostgreSQLの制約・インデックス
+* Redisキャッシュ
+* キャッシュ障害時のフォールバック
+* ページネーション
+* フィルタリング・ソート
+* 自動テスト
+* データベースマイグレーション
+* Docker
+* CI/CD
+* ヘルスチェック
+* 本番環境を意識したエラーハンドリング
 
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
 ## 主な機能
 
-* ユーザー登録・管理
+### 認証・認可
+
 * JWTによる認証
 * Argon2によるパスワードハッシュ化
 * ロールベースアクセス制御（RBAC）
-* 商品管理
+* Authentication Dependency
+* 管理者専用操作
+* 商品所有者によるオブジェクト単位の認可
+* ユーザー間の不正アクセス（IDOR）対策
+
+### 商品・在庫管理
+
+* 商品CRUD
 * カテゴリー管理
+* 商品所有権
 * 在庫数量管理
-* PostgreSQLデータベース
-* SQLAlchemy ORM
-* Alembicによるデータベースマイグレーション
-* Redisによるキャッシュ
-* バックグラウンドタスク
-* Pydanticによるリクエスト・レスポンスのバリデーション
-* Repository / Serviceレイヤー
-* pytestによる自動テスト
-* Dockerによる開発・本番環境
-* GitHub ActionsによるCI/CD
-* Amazon ECRへのコンテナイメージ保存
-* Amazon EC2へのデプロイ
-* AWS Systems Managerによるリモートデプロイ
-* アプリケーションのヘルスチェック
+* 入庫・出庫処理
+* PostgreSQLによる負の在庫数量の防止
+* 商品一覧のページネーション
+* カテゴリー・価格によるフィルタリング
+* 商品属性によるソート
 
-[⬆ ページ上部へ](#inventory-management-api)
+### 注文
 
-## 技術スタック
+* Order / OrderItemモデル
+* サーバー側での商品価格計算
+* トランザクションによる注文作成
+* 注文作成時の在庫自動減少
+* 注文所有者によるアクセス制御
+* 注文一覧のページネーション
+* エラー発生時のロールバック
+* PostgreSQLの`SELECT ... FOR UPDATE`
+* 同時注文による在庫の過剰販売防止
 
-| 分類        | 技術                       |
-| --------- | ------------------------ |
-| 言語        | Python 3.13              |
-| フレームワーク   | FastAPI                  |
-| データベース    | PostgreSQL 16            |
-| ORM       | SQLAlchemy               |
-| マイグレーション  | Alembic                  |
-| バリデーション   | Pydantic                 |
-| 認証        | JWT、Argon2               |
-| キャッシュ     | Redis 7                  |
-| テスト       | pytest                   |
-| パッケージ管理   | uv                       |
-| コンテナ      | Docker、Docker Compose    |
-| CI/CD     | GitHub Actions           |
-| クラウド      | AWS                      |
-| コンテナレジストリ | Amazon ECR               |
-| コンピューティング | Amazon EC2               |
-| リモートデプロイ  | AWS Systems Manager（SSM） |
+### データベース
 
-[⬆ ページ上部へ](#inventory-management-api)
+* PostgreSQL 16
+* SQLAlchemy 2
+* Alembic
+* Decimal型による金額管理
+* 外部キー
+* データベース制約
+* クエリパターンに基づくインデックス
 
-## アーキテクチャ
+### キャッシュ
 
-アプリケーションは、役割ごとに分離したレイヤードアーキテクチャを採用しています。
+* Redisによる商品キャッシュ
+* TTLによるキャッシュ有効期限
+* 商品更新時のキャッシュ無効化
+* 注文による在庫変更時のキャッシュ無効化
+* Redis障害時のPostgreSQLフォールバック
+* 不正なキャッシュデータをキャッシュミスとして処理
+* PostgreSQLを唯一の正しいデータソースとして利用
 
-```text
-Client
-  │
-  ▼
-FastAPI API
-  │
-  ▼
-API / Dependencies
-  │
-  ▼
-Services
-  │
-  ▼
-Repositories
-  │
-  ├──────────────► PostgreSQL
-  │
-  └──────────────► Redis
-```
+### テスト
 
-各レイヤーの主な役割は以下のとおりです。
+* pytest
+* APIテスト
+* Serviceテスト
+* Repositoryテスト
+* Schemaテスト
+* 認証・セキュリティテスト
+* Redis障害テスト
+* トランザクション・ロールバックテスト
+* ヘルスチェックテスト
+* PostgreSQL同時実行テスト
+* **143テスト**
 
-* **API層**：HTTPリクエスト、レスポンス、依存性注入を処理
-* **Service層**：ビジネスロジックを処理
-* **Repository層**：データベース操作を担当
-* **Model層**：SQLAlchemyによるデータベースモデルを定義
-* **Schema層**：Pydanticによるリクエスト・レスポンスモデルを定義
-* **Core層**：設定、セキュリティ、ロールなどを管理
-* **Cache層**：Redisを利用したキャッシュ処理を担当
-* **Task層**：バックグラウンド処理を担当
+---
 
-この構成により、HTTP処理とデータベース処理からビジネスロジックを分離しています。
+## 技術的なポイント
 
-[⬆ ページ上部へ](#inventory-management-api)
+### 1. トランザクションによる注文処理
 
-## プロジェクト構成
+注文作成では、複数のデータベース操作を1つのトランザクションとして処理します。
 
 ```text
-inventory-management/
-├── app/
-│   ├── api/
-│   ├── cache/
-│   ├── core/
-│   ├── db/
-│   ├── models/
-│   ├── repositories/
-│   ├── schemas/
-│   ├── services/
-│   ├── tasks/
-│   └── main.py
-│
-├── alembic/
-│   ├── versions/
-│   └── env.py
-│
-├── tests/
-│
-├── .github/
-│   └── workflows/
-│       └── ci.yml
-│
-├── Dockerfile
-├── compose.yml
-├── alembic.ini
-├── pyproject.toml
-└── uv.lock
+在庫確認・ロック
+      ↓
+在庫数量変更
+      ↓
+Order作成
+      ↓
+OrderItem作成
+      ↓
+COMMIT
 ```
 
-本番環境専用の設定ファイルや秘密情報を含むファイルは、リポジトリには含めていません。
+途中でエラーが発生した場合はロールバックされ、在庫だけが減少したり、Orderだけが作成されたりする状態を防ぎます。
 
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
-## 認証・認可
+### 2. 同時実行制御
 
-認証にはJSON Web Token（JWT）を使用しています。
+同じ商品を複数のユーザーが同時に注文する場合、在庫数を正しく管理する必要があります。
 
-ユーザーのパスワードは、データベースに保存する前に **Argon2** を使用して安全にハッシュ化しています。
+そのため、注文作成時にはPostgreSQLの行ロックを使用しています。
 
-また、ロールベースアクセス制御（RBAC）を実装し、ユーザーのロールに応じてAPI操作へのアクセスを制御しています。
+```sql
+SELECT ...
+FROM products
+WHERE id = ...
+FOR UPDATE;
+```
 
-主なセキュリティ機能：
+これにより、同じ商品を同時に更新しようとするトランザクション間で競合を制御します。
 
-* パスワードのハッシュ化
-* パスワードの検証
-* JWTアクセストークンの発行
-* JWTトークンの検証
-* 認証用Dependency
-* ロールベースの認可
+PostgreSQLを使用した同時実行テストによって、最後の1個を複数の注文が同時に購入して在庫がマイナスになるケースを防止できることを確認しています。
 
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
-## 在庫管理
+### 3. データベースレベルの整合性
 
-商品には在庫数量を持たせ、APIを通して数量の登録・更新を行えるようにしています。
-
-また、アプリケーション側のバリデーションだけではなく、PostgreSQL側でも在庫数量が負数にならないよう制約を設定しています。
+アプリケーション側だけでなく、PostgreSQL側でも在庫数量を制約しています。
 
 ```text
 quantity >= 0
 ```
 
-データベーススキーマはAlembicによってバージョン管理され、マイグレーションとして適用されます。
+これにより、アプリケーション側のチェックを誤って通過した場合でも、データベースに不正な在庫数量が保存されることを防ぎます。
 
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
-## キャッシュ・バックグラウンドタスク
+### 4. クエリパターンに基づくインデックス
 
-商品関連の処理にはRedisをキャッシュ層として使用しています。
+現在のアクセスパターンを考慮して、以下のインデックスを設定しています。
 
-また、HTTPレスポンスを不必要に遅延させない処理については、バックグラウンドタスクを利用して非同期的に処理できる構成にしています。
+```text
+products(category_id)
 
-これにより、主要なリレーショナルデータベース以外のインフラストラクチャも利用したバックエンドシステムを構築しています。
+orders(user_id, created_at, id)
 
-[⬆ ページ上部へ](#inventory-management-api)
-
-## データベース・マイグレーション
-
-データベースには以下を使用しています。
-
-* **PostgreSQL 16**：永続データの保存
-* **SQLAlchemy 2**：ORM・データベースアクセス
-* **Alembic**：スキーママイグレーション
-
-マイグレーションはバージョン管理され、アップグレード・ダウングレードの両方に対応しています。
-
-主なマイグレーション内容：
-
-* 初期テーブル作成
-* 商品価格の追加
-* ユーザーパスワードハッシュの追加
-* ユーザーロールの追加
-* 商品在庫数量の追加
-* 商品在庫数量の制約追加
-
-本番デプロイ時には、以下のコマンドで未適用のマイグレーションを自動的に適用します。
-
-```bash
-uv run alembic upgrade head
+order_items(order_id)
 ```
 
-その後、アプリケーションのヘルスチェックを行います。
+例えば注文一覧では、
 
-[⬆ ページ上部へ](#inventory-management-api)
+```sql
+WHERE user_id = ?
+ORDER BY created_at DESC, id DESC
+```
+
+というクエリを使用するため、それに対応した複合インデックスを設定しています。
+
+不要なインデックスをすべてのカラムに追加するのではなく、実際のクエリパターンに基づいて設計しています。
+
+---
+
+### 5. Redisを最適化として利用
+
+Redisは読み取り性能を向上させるために使用していますが、データの正しい状態はPostgreSQLが保持します。
+
+```text
+商品取得
+  ↓
+Redis
+ ├─ Hit → キャッシュを返す
+ │
+ └─ Miss
+      ↓
+  PostgreSQL
+      ↓
+  キャッシュ保存
+```
+
+Redisに接続できない場合でも、PostgreSQLから取得することでAPI自体は継続して動作できます。
+
+---
+
+### 6. キャッシュ無効化
+
+以下の操作では対象商品のRedisキャッシュを無効化します。
+
+* 商品更新
+* 商品削除
+* 在庫追加
+* 在庫減少
+* 注文による在庫減少
+
+注文処理では、データベースのCOMMIT後にキャッシュを無効化します。
+
+---
+
+### 7. オブジェクト単位の認可
+
+ログイン済みであるだけでは、他のユーザーの商品を変更できないようにしています。
+
+```text
+ログインユーザー
+      ↓
+商品所有者か？
+   ┌──┴──┐
+  Yes    No
+   ↓      ↓
+ 許可   管理者か？
+          │
+        ┌─┴─┐
+       Yes  No
+        ↓    ↓
+       許可 403
+```
+
+これにより、URL内の商品IDを変更するだけで他ユーザーの商品を操作できるIDOR型の問題を防止しています。
+
+---
+
+## アーキテクチャ
+
+アプリケーションはレイヤードアーキテクチャを採用しています。
+
+```text
+                    Client
+                      │
+                      ▼
+                FastAPI API
+                      │
+                      ▼
+              API / Dependencies
+                      │
+                      ▼
+                  Services
+                      │
+                      ▼
+                Repositories
+                  │       │
+                  ▼       ▼
+             PostgreSQL  Redis
+```
+
+### API層
+
+HTTPリクエスト、レスポンス、バリデーション、Dependency Injection、認証・認可の境界を担当します。
+
+### Service層
+
+ビジネスロジック、トランザクション、認可、在庫処理、注文処理などを担当します。
+
+### Repository層
+
+データベースへのアクセスを担当します。
+
+### Model層
+
+SQLAlchemyのデータベースモデルとリレーションを定義します。
+
+### Schema層
+
+Pydanticによるリクエスト・レスポンスモデルを定義します。
+
+### Core層
+
+設定、セキュリティ、ロールなどを管理します。
+
+### Cache層
+
+Redisによるキャッシュとキャッシュ無効化を担当します。
+
+### Task層
+
+HTTPレスポンスを不必要に遅延させないバックグラウンド処理を担当します。
+
+---
+
+## 認証・認可
+
+認証にはJWTを使用しています。
+
+パスワードはデータベースへ保存する前に**Argon2**でハッシュ化します。
+
+また、RBACだけではなく、商品所有者かどうかを確認するオブジェクト単位の認可も実装しています。
+
+主なセキュリティ機能：
+
+* パスワードハッシュ化
+* パスワード検証
+* JWTアクセストークン発行
+* JWT検証
+* Authentication Dependency
+* RBAC
+* 商品所有権チェック
+* クロスユーザーアクセス防止
+* Pydanticによる入力バリデーション
+* PostgreSQLによるデータ整合性制約
+
+ログイン時には、ユーザー名が存在しない場合とパスワードが間違っている場合で同じエラーメッセージを返すことで、アカウントの存在を推測しにくい設計にしています。
+
+---
 
 ## テスト
 
-自動テストには **pytest** を使用しています。
+自動テストには**pytest**を使用しています。
 
-以下の複数のレイヤーをテストしています。
+現在、**143テスト**を収集・実行できる状態です。
 
-* APIエンドポイント
+テスト対象：
+
+* API
+* 認証
+* 認可
+* IDOR対策
 * Service
 * Repository
 * Schema
-* 認証
 * セキュリティ
-* バックグラウンドタスク
+* Redis
+* Redis障害時のフォールバック
+* キャッシュ無効化
+* トランザクション・ロールバック
+* 注文処理
+* ページネーション
+* フィルタリング・ソート
+* ヘルスチェック
+* PostgreSQL同時実行制御
 
-CI環境ではPostgreSQLとRedisのサービスを起動した状態でテストを実行します。
+特にPostgreSQLを使用した同時実行テストでは、同じ在庫に対する同時注文による過剰販売を防止できることを確認しています。
 
-Pull Requestおよび`main`へのPushをトリガーとして自動テストが実行されます。
+全テストの実行：
 
-[⬆ ページ上部へ](#inventory-management-api)
+```bash
+uv run pytest
+```
+
+---
+
+## ヘルスチェック
+
+以下のエンドポイントを提供しています。
+
+```text
+GET /health
+```
+
+PostgreSQLへの接続を確認し、正常な場合は：
+
+```json
+{
+  "status": "ok"
+}
+```
+
+を返します。
+
+PostgreSQLが利用できない場合は、
+
+```text
+503 Service Unavailable
+```
+
+を返します。
+
+内部エラーの詳細はクライアントへ公開せず、サーバー側のログに記録します。
+
+---
 
 ## Docker
 
-Docker Composeを使用して、以下のサービスを起動できます。
+Docker Composeを使用して以下の環境を起動できます。
 
-* FastAPIアプリケーション
+* FastAPI
 * PostgreSQL
 * Redis
 
-APIコンテナにはヘルスチェックを設定しており、アプリケーションの稼働状態だけでなく、データベースへの接続も確認します。
+ローカル開発では、PostgreSQLとRedisだけをDockerで起動し、FastAPIを`uvicorn`から直接起動する構成も利用できます。
 
-本番環境では、Amazon ECRからアプリケーションイメージを取得する専用のCompose設定を使用しています。
-
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
 ## CI/CD
 
-GitHub Actionsを使用して、自動テストとデプロイを行っています。
+GitHub Actionsを使用して自動テストとDockerイメージのビルドを行います。
 
-パイプラインは以下の流れで実行されます。
+また、AWS ECRへのイメージ登録、EC2へのデプロイ、Alembicによるマイグレーション、ヘルスチェックまで含むデプロイ構成も実装しています。
 
-```text
-Push / Pull Request
-        │
-        ▼
-依存関係のインストール
-        │
-        ▼
-テスト実行
-        │
-        ▼
-Dockerイメージのビルド
-        │
-        ▼
-       main
-        │
-        ▼
-Amazon ECRへイメージをPush
-        │
-        ▼
-AWS SSM経由でEC2へデプロイ
-        │
-        ▼
-Alembicマイグレーション
-        │
-        ▼
-APIヘルスチェック
-```
+DockerイメージにはGitのコミットSHAを利用することで、ソースコードとビルド済みイメージを対応付けられるようにしています。
 
-Pull RequestではテストとDockerイメージのビルドまで実行します。
-
-`main`へのPushでは、これらに加えて本番環境へのデプロイを実行します。
-
-DockerイメージにはGitのコミットSHAをタグとして使用しているため、ソースコードとデプロイされたイメージを対応付けることができます。
-
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
 ## AWSデプロイ
 
-AWSでは以下のサービスを使用しています。
+AWSを使用したコンテナデプロイも実装しています。
 
 ```text
 GitHub Actions
@@ -806,23 +1333,24 @@ Amazon EC2
       └── Redis
 ```
 
-EC2へのリモート操作にはAWS Systems Manager（SSM）を使用しています。
+AWS Systems Manager（SSM）を利用してEC2上のデプロイ処理を実行します。
 
-デプロイの流れ：
+主な流れ：
 
 1. Dockerイメージをビルド
-2. Amazon ECRへイメージをPush
-3. SSM経由でEC2へ接続
-4. 新しいイメージを取得
-5. コンテナを起動
-6. Alembicマイグレーションを適用
-7. アプリケーションのヘルスチェックを実行
+2. Amazon ECRへPush
+3. EC2へデプロイ
+4. コンテナを起動
+5. Alembicマイグレーションを適用
+6. ヘルスチェックを実行
 
-[⬆ ページ上部へ](#inventory-management-api)
+AWS環境はローカル開発には必須ではなく、コンテナデプロイやインフラ運用を学ぶための構成として実装しています。
+
+---
 
 ## APIドキュメント
 
-アプリケーション起動時、FastAPIがインタラクティブなAPIドキュメントを自動生成します。
+FastAPIによって以下のドキュメントが自動生成されます。
 
 ### Swagger UI
 
@@ -836,21 +1364,7 @@ http://localhost:8000/docs
 http://localhost:8000/redoc
 ```
 
-ヘルスチェック用エンドポイント：
-
-```text
-GET /health
-```
-
-レスポンス例：
-
-```json
-{
-  "status": "ok"
-}
-```
-
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
 ## ローカル環境での実行
 
@@ -870,8 +1384,6 @@ cd inventory-management
 
 ### 2. 環境変数ファイルを作成
 
-サンプルファイルをコピーします。
-
 ```bash
 cp env.example .env
 ```
@@ -890,7 +1402,7 @@ docker compose up -d db redis
 uv sync
 ```
 
-### 5. データベースマイグレーションを適用
+### 5. マイグレーションを適用
 
 ```bash
 uv run alembic upgrade head
@@ -914,7 +1426,7 @@ Swagger UI：
 http://localhost:8000/docs
 ```
 
-[⬆ ページ上部へ](#inventory-management-api)
+---
 
 ## 環境変数
 
@@ -928,25 +1440,48 @@ ACCESS_TOKEN_EXPIRE_MINUTES=30
 REDIS_URL=redis://redis:6379/0
 ```
 
-実際の認証情報や秘密鍵を含む`.env`ファイルは、リポジトリにコミットしないでください。
-
-[⬆ ページ上部へ](#inventory-management-api)
-
-## 今後の改善
-
-今後の改善候補：
-
-* より包括的なIntegration Testの追加
-* 在庫管理機能の拡張
-* モニタリング・Observabilityの強化
-* より細かな認可ポリシー
-* アプリケーションと分離した本番用データベース
-* デプロイ時の安全対策の追加
-
-[⬆ ページ上部へ](#inventory-management-api)
+実際の認証情報、JWT秘密鍵、その他の秘密情報をリポジトリへコミットしないでください。
 
 ---
 
-<a name="english"></a>
+## 設計上のポイント
 
-**Language:** [English](#english) | [日本語](#日本語)
+### PostgreSQLを正しいデータソースとして使用
+
+Redisは性能向上のためのキャッシュであり、データの正しい状態はPostgreSQLが保持します。
+
+### トランザクションで複数操作を保護
+
+注文作成と在庫変更を同一トランザクションとして処理します。
+
+### 行ロックによる同時実行制御
+
+`SELECT ... FOR UPDATE`を使用して、共有される在庫データに対する競合を制御します。
+
+### データベース制約による二重の保護
+
+アプリケーション側のバリデーションに加えて、PostgreSQL側でも`quantity >= 0`を保証します。
+
+### クエリに基づいたインデックス設計
+
+すべてのカラムにインデックスを追加するのではなく、実際の検索・ページネーション・リレーション読み込みに必要なインデックスだけを追加しています。
+
+### Service層へのビジネスロジック分離
+
+API層はHTTP処理を担当し、Service層がビジネスルールとトランザクションを担当します。
+
+### 内部エラーをクライアントへ公開しない
+
+クライアントには安全なエラーメッセージを返し、詳細な例外情報はサーバーログで確認できるようにしています。
+
+---
+
+## プロジェクトの現在の状態
+
+このプロジェクトは、ポートフォリオにおけるバックエンドプロジェクトとして完成しています。
+
+次のプロジェクトでは、**React + TypeScript**を使用した独立したInventory管理画面を開発し、このREST APIを利用する予定です。
+
+---
+
+**Repository:** https://github.com/gonfuentes112/inventory-management
