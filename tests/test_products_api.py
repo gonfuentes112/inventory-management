@@ -750,3 +750,124 @@ def test_remove_stock_to_zero(
 
     db_session.refresh(product)
     assert product.quantity == 0
+
+
+def test_get_products_filter_by_price(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name, price in [
+        ("Cheap", 50.00),
+        ("Medium", 500.00),
+        ("Expensive", 1500.00),
+    ]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": price,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get("/products?min_price=100&max_price=1000")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert data["items"][0]["name"] == "Medium"
+
+
+def test_get_products_sort_by_price(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name, price in [
+        ("Cheap", 50.00),
+        ("Medium", 500.00),
+        ("Expensive", 1500.00),
+    ]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": price,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get("/products?sort_by=price&sort_order=desc")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert [item["name"] for item in data["items"]] == [
+        "Expensive",
+        "Medium",
+        "Cheap",
+    ]
+
+
+def test_get_products_invalid_sort(
+    authenticated_client: TestClient,
+):
+    response = authenticated_client.get("/products?sort_by=invalid")
+
+    assert response.status_code == 422
+
+    response = authenticated_client.get("/products?sort_order=invalid")
+
+    assert response.status_code == 422
+
+
+def test_get_products_filter_sort_and_paginate(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name, price in [
+        ("Product 1", 100.00),
+        ("Product 2", 200.00),
+        ("Product 3", 300.00),
+        ("Product 4", 400.00),
+        ("Product 5", 500.00),
+    ]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": price,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get(
+        "/products"
+        "?min_price=100"
+        "&max_price=500"
+        "&sort_by=price"
+        "&sort_order=desc"
+        "&page=2"
+        "&page_size=2"
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 5
+    assert data["page"] == 2
+    assert data["page_size"] == 2
+    assert data["pages"] == 3
+    assert len(data["items"]) == 2
+
+    assert data["items"][0]["name"] == "Product 3"
+    assert data["items"][1]["name"] == "Product 2"

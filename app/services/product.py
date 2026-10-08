@@ -1,3 +1,4 @@
+from decimal import Decimal
 from sqlalchemy.orm import Session
 
 from app.repositories.product import ProductRepository
@@ -66,10 +67,20 @@ class ProductService:
         *,
         page: int,
         page_size: int,
+        category_id: int | None = None,
+        min_price: Decimal | None = None,
+        max_price: Decimal | None = None,
+        sort_by: str = "id",
+        sort_order: str = "asc",
     ) -> tuple[list[Product], int]:
         return self.repository.get_paginated(
             page=page,
             page_size=page_size,
+            category_id=category_id,
+            min_price=min_price,
+            max_price=max_price,
+            sort_by=sort_by,
+            sort_order=sort_order,
         )
 
     def update_product(

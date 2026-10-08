@@ -22,13 +22,50 @@ class ProductRepository:
         *,
         page: int,
         page_size: int,
+        category_id: int | None = None,
+        min_price: Decimal | None = None,
+        max_price: Decimal | None = None,
+        sort_by: str = "id",
+        sort_order: str = "asc",
     ) -> tuple[list[Product], int]:
-        offset = (page - 1) * page_size
+        filters = []
 
-        total_statement = select(func.count()).select_from(Product)
+        if category_id is not None:
+            filters.append(Product.category_id == category_id)
+
+        if min_price is not None:
+            filters.append(Product.price >= min_price)
+
+        if max_price is not None:
+            filters.append(Product.price <= max_price)
+
+        total_statement = select(func.count()).select_from(Product).where(*filters)
+
         total = self.session.scalar(total_statement) or 0
 
-        statement = select(Product).order_by(Product.id).offset(offset).limit(page_size)
+        sort_columns = {
+            "id": Product.id,
+            "name": Product.name,
+            "price": Product.price,
+            "quantity": Product.quantity,
+        }
+
+        sort_column = sort_columns[sort_by]
+
+        if sort_order == "desc":
+            order_expression = sort_column.desc()
+        else:
+            order_expression = sort_column.asc()
+
+        offset = (page - 1) * page_size
+
+        statement = (
+            select(Product)
+            .where(*filters)
+            .order_by(order_expression, Product.id)
+            .offset(offset)
+            .limit(page_size)
+        )
 
         products = list(self.session.scalars(statement).all())
 

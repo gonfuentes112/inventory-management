@@ -1,4 +1,5 @@
-from typing import Annotated
+from typing import Annotated, Literal
+from decimal import Decimal
 
 from math import ceil
 
@@ -21,6 +22,9 @@ ProductServiceDependency = Annotated[
     ProductService,
     Depends(get_product_service),
 ]
+
+SortBy = Literal["id", "name", "price", "quantity"]
+SortOrder = Literal["asc", "desc"]
 
 
 @router.post(
@@ -58,10 +62,20 @@ def get_products(
     service: ProductServiceDependency,
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
+    category_id: int | None = Query(None, ge=1),
+    min_price: Decimal | None = Query(None, ge=0),
+    max_price: Decimal | None = Query(None, ge=0),
+    sort_by: SortBy = Query("id"),
+    sort_order: SortOrder = Query("asc"),
 ):
     products, total = service.get_products_paginated(
         page=page,
         page_size=page_size,
+        category_id=category_id,
+        min_price=min_price,
+        max_price=max_price,
+        sort_by=sort_by,
+        sort_order=sort_order,
     )
 
     pages = ceil(total / page_size) if total > 0 else 0
