@@ -7,6 +7,7 @@ from app.core.security import hash_password
 from sqlalchemy.orm import Session
 
 from app.models.category import Category
+from app.models.product import Product
 from app.models.user import User
 from app.schemas.product import ProductCreate, ProductUpdate
 from app.services.product import ProductService
@@ -896,3 +897,97 @@ def test_admin_can_update_product(
     assert updated_product is not None
     assert updated_product.name == "Admin Updated Laptop"
     assert updated_product.owner_id == owner.id
+
+
+def test_get_product_falls_back_to_database_when_redis_fails(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+    monkeypatch,
+) -> None:
+    category = test_data["category"]
+    user = test_data["user"]
+
+    product = Product(
+        name="Redis Failure Product",
+        description="Test product",
+        price=Decimal("100.00"),
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    def raise_redis_error(*args, **kwargs):
+        from redis.exceptions import RedisError
+
+        raise RedisError("Redis unavailable")
+
+    monkeypatch.setattr(
+        "app.cache.product.redis_client.get",
+        raise_redis_error,
+    )
+
+    service = ProductService(db_session)
+
+    result = service.get_product(product.id)
+
+    assert result is not None
+    assert result.id == product.id
+    assert result.name == "Redis Failure Product"
+    assert result.quantity == 10
+
+
+def test_update_product_succeeds_when_redis_invalidation_fails(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+    monkeypatch,
+) -> None:
+    category = test_data["category"]
+    user = test_data["user"]
+
+    product = Product(
+        name="Original Product",
+        description="Original description",
+        price=Decimal("100.00"),
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    def raise_redis_error(*args, **kwargs):
+        from redis.exceptions import RedisError
+
+        raise RedisError("Redis unavailable")
+
+    monkeypatch.setattr(
+        "app.cache.product.redis_client.delete",
+        raise_redis_error,
+    )
+
+    service = ProductService(db_session)
+
+    result = service.update_product(
+        product.id,
+        ProductUpdate(
+            name="Updated Product",
+        ),
+        current_user_id=user.id,
+        is_admin=False,
+    )
+
+    assert result is not None
+    assert result.name == "Updated Product"
+
+    db_session.expire_all()
+
+    updated_product = db_session.get(Product, product.id)
+
+    assert updated_product is not None
+    assert updated_product.name == "Updated Product"

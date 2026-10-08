@@ -3,6 +3,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.orm import Session
 
+from app.models.category import Category
 from app.models.order import Order
 from app.models.product import Product
 from app.models.user import User
@@ -310,3 +311,59 @@ def test_order_creation_rolls_back_after_stock_update(
 
     assert product.quantity == 10
     assert db_session.query(Order).count() == 0
+
+
+def test_create_order_invalidates_product_cache(
+    db_session: Session,
+    test_data: dict[str, User | Category],
+    monkeypatch,
+) -> None:
+    category = test_data["category"]
+    user = test_data["user"]
+
+    product = Product(
+        name="Cached Order Product",
+        description="Test product",
+        price=Decimal("100.00"),
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    deleted_product_ids: list[int] = []
+
+    def record_cache_deletion(product_id: int) -> None:
+        deleted_product_ids.append(product_id)
+
+    monkeypatch.setattr(
+        "app.services.order.delete_cached_product",
+        record_cache_deletion,
+    )
+
+    service = OrderService(db_session)
+
+    order = service.create_order(
+        data=OrderCreate(
+            items=[
+                OrderItemCreate(
+                    product_id=product.id,
+                    quantity=2,
+                )
+            ]
+        ),
+        current_user_id=user.id,
+    )
+
+    assert order is not None
+    assert product.id in deleted_product_ids
+
+    db_session.expire_all()
+
+    updated_product = db_session.get(Product, product.id)
+
+    assert updated_product is not None
+    assert updated_product.quantity == 8
