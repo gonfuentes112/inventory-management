@@ -4,7 +4,6 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.services.category import CategoryService
 from app.schemas.category import CategoryCreate, CategoryResponse
-from app.api.dependencies import get_category_service
 
 from app.api.dependencies import get_category_service, AdminUser
 
