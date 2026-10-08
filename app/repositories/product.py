@@ -1,5 +1,5 @@
 from decimal import Decimal
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session
 
 from app.models.product import Product
@@ -16,6 +16,23 @@ class ProductRepository:
     def get_all(self) -> list[Product]:
         statement = select(Product)
         return list(self.session.scalars(statement).all())
+
+    def get_paginated(
+        self,
+        *,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[Product], int]:
+        offset = (page - 1) * page_size
+
+        total_statement = select(func.count()).select_from(Product)
+        total = self.session.scalar(total_statement) or 0
+
+        statement = select(Product).order_by(Product.id).offset(offset).limit(page_size)
+
+        products = list(self.session.scalars(statement).all())
+
+        return products, total
 
     def create(
         self,

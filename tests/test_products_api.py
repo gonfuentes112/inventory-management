@@ -111,9 +111,118 @@ def test_get_products(
 
     data = response.json()
 
-    assert len(data) == 2
-    assert data[0]["name"] == "Laptop"
-    assert data[1]["name"] == "Keyboard"
+    assert data["total"] == 2
+    assert data["page"] == 1
+    assert data["page_size"] == 20
+    assert data["pages"] == 1
+    assert len(data["items"]) == 2
+
+    assert data["items"][0]["name"] == "Laptop"
+    assert data["items"][1]["name"] == "Keyboard"
+
+
+def test_get_products_with_page_size(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for i in range(5):
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": f"Product {i}",
+                "description": f"Product {i}",
+                "price": 100.00,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get("/products?page=1&page_size=2")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 5
+    assert data["page"] == 1
+    assert data["page_size"] == 2
+    assert data["pages"] == 3
+    assert len(data["items"]) == 2
+
+
+def test_get_products_second_page(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for i in range(5):
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": f"Product {i}",
+                "description": f"Product {i}",
+                "price": 100.00,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get("/products?page=2&page_size=2")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 5
+    assert data["page"] == 2
+    assert data["page_size"] == 2
+    assert data["pages"] == 3
+    assert len(data["items"]) == 2
+
+    assert data["items"][0]["name"] == "Product 2"
+    assert data["items"][1]["name"] == "Product 3"
+
+
+def test_get_products_last_page(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for i in range(5):
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": f"Product {i}",
+                "description": f"Product {i}",
+                "price": 100.00,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get("/products?page=3&page_size=2")
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 5
+    assert data["page"] == 3
+    assert data["page_size"] == 2
+    assert data["pages"] == 3
+    assert len(data["items"]) == 1
+    assert data["items"][0]["name"] == "Product 4"
+
+
+def test_get_products_invalid_pagination(
+    authenticated_client: TestClient,
+):
+    response = authenticated_client.get("/products?page=0")
+    assert response.status_code == 422
+
+    response = authenticated_client.get("/products?page_size=0")
+    assert response.status_code == 422
+
+    response = authenticated_client.get("/products?page_size=101")
+    assert response.status_code == 422
 
 
 def test_update_product(

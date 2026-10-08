@@ -1,13 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from math import ceil
 
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
+
+from app.schemas.inventory import StockUpdate
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
+from app.schemas.pagination import PaginatedResponse
+
 from app.services.product import ProductService
 
 from app.api.dependencies import CurrentUser, get_product_service, AdminUser
 
-from app.schemas.inventory import StockUpdate
 
 from app.tasks.product import log_product_created
 
@@ -48,12 +52,27 @@ def create_product(
 
 @router.get(
     "",
-    response_model=list[ProductResponse],
+    response_model=PaginatedResponse[ProductResponse],
 )
 def get_products(
     service: ProductServiceDependency,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
 ):
-    return service.get_products()
+    products, total = service.get_products_paginated(
+        page=page,
+        page_size=page_size,
+    )
+
+    pages = ceil(total / page_size) if total > 0 else 0
+
+    return PaginatedResponse(
+        items=products,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
+    )
 
 
 @router.post(

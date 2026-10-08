@@ -61,6 +61,17 @@ class ProductService:
     def get_products(self) -> list[Product]:
         return self.repository.get_all()
 
+    def get_products_paginated(
+        self,
+        *,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[Product], int]:
+        return self.repository.get_paginated(
+            page=page,
+            page_size=page_size,
+        )
+
     def update_product(
         self,
         product_id: int,
