@@ -27,6 +27,9 @@ dev = [
 filterwarnings = [
     "ignore:The anyio.abc.BlockingPortal alias is deprecated:DeprecationWarning:starlette.testclient",
 ]
+markers = [
+    "postgres: tests that require PostgreSQL",
+]
 
 [tool.pyrefly]
 project-includes = [

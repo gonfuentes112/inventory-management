@@ -1,7 +1,7 @@
 from decimal import Decimal
 
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.order import Order, OrderItem
 from app.models.product import Product
@@ -57,8 +57,25 @@ class OrderRepository:
         order_id: int,
         user_id: int,
     ) -> Order | None:
-        statement = select(Order).where(
-            Order.id == order_id,
-            Order.user_id == user_id,
+        statement = (
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(
+                Order.id == order_id,
+                Order.user_id == user_id,
+            )
         )
         return self.session.scalar(statement)
+
+    def get_all_by_user(
+        self,
+        user_id: int,
+    ) -> list[Order]:
+        statement = (
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.user_id == user_id)
+            .order_by(Order.created_at.desc())
+        )
+
+        return list(self.session.scalars(statement).all())

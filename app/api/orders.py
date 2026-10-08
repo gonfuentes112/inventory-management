@@ -39,3 +39,39 @@ def create_order(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+
+@router.get(
+    "/{order_id}",
+    response_model=OrderResponse,
+)
+def get_order(
+    order_id: int,
+    service: OrderServiceDependency,
+    current_user: CurrentUser,
+):
+    order = service.get_order(
+        order_id=order_id,
+        current_user_id=current_user.id,
+    )
+
+    if order is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Order not found",
+        )
+
+    return order
+
+
+@router.get(
+    "",
+    response_model=list[OrderResponse],
+)
+def get_orders(
+    service: OrderServiceDependency,
+    current_user: CurrentUser,
+):
+    return service.get_orders(
+        current_user_id=current_user.id,
+    )

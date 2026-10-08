@@ -5,6 +5,8 @@ from typing import TypedDict
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+
 from app.db.database import Base
 from app.models.category import Category
 from app.models.product import Product  # type: ignore
@@ -165,3 +167,20 @@ def admin_client(
     yield test_client
 
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def postgres_engine() -> Generator[Engine, None, None]:
+    engine = create_engine(settings.database_url)
+
+    yield engine
+
+    engine.dispose()
+
+
+@pytest.fixture
+def postgres_session(
+    postgres_engine: Engine,
+) -> Generator[Session, None, None]:
+    with Session(postgres_engine) as session:
+        yield session

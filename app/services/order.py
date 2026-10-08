@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from sqlalchemy.orm import Session
 
+from app.models.order import Order
+
 from app.repositories.order import OrderRepository
 from app.schemas.order import OrderCreate
 from app.cache.product import delete_cached_product
@@ -21,21 +23,32 @@ class OrderService:
         locked_products = {}
 
         try:
-            for item in data.items:
-                if item.product_id in locked_products:
-                    raise ValueError(f"Duplicate product: {item.product_id}")
+            product_ids = [item.product_id for item in data.items]
 
-                product = self.repository.get_product_for_update(item.product_id)
+            if len(product_ids) != len(set(product_ids)):
+                duplicate_product_id = next(
+                    product_id
+                    for product_id in product_ids
+                    if product_ids.count(product_id) > 1
+                )
+
+                raise ValueError(f"Duplicate product: {duplicate_product_id}")
+
+            for product_id in sorted(product_ids):
+                product = self.repository.get_product_for_update(product_id)
 
                 if product is None:
-                    raise ValueError(f"Product {item.product_id} not found")
+                    raise ValueError(f"Product {product_id} not found")
+
+                locked_products[product_id] = product
+
+            for item in data.items:
+                product = locked_products[item.product_id]
 
                 if product.quantity < item.quantity:
                     raise ValueError(
                         f"Insufficient stock for product {item.product_id}"
                     )
-
-                locked_products[item.product_id] = product
 
             total = Decimal("0.00")
             order_items = []
@@ -90,3 +103,23 @@ class OrderService:
             delete_cached_product(product.id)
 
         return order
+
+    def get_order(
+        self,
+        order_id: int,
+        *,
+        current_user_id: int,
+    ):
+        return self.repository.get_by_id(
+            order_id=order_id,
+            user_id=current_user_id,
+        )
+
+    def get_orders(
+        self,
+        *,
+        current_user_id: int,
+    ) -> list[Order]:
+        return self.repository.get_all_by_user(
+            user_id=current_user_id,
+        )
