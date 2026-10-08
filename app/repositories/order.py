@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.orm import Session, selectinload
 
 from app.models.order import Order, OrderItem
@@ -79,3 +79,31 @@ class OrderRepository:
         )
 
         return list(self.session.scalars(statement).all())
+
+    def get_paginated_by_user(
+        self,
+        *,
+        user_id: int,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[Order], int]:
+        offset = (page - 1) * page_size
+
+        total_statement = (
+            select(func.count()).select_from(Order).where(Order.user_id == user_id)
+        )
+
+        total = self.session.scalar(total_statement) or 0
+
+        statement = (
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(Order.user_id == user_id)
+            .order_by(Order.created_at.desc(), Order.id.desc())
+            .offset(offset)
+            .limit(page_size)
+        )
+
+        orders = list(self.session.scalars(statement).all())
+
+        return orders, total

@@ -1,8 +1,6 @@
 from typing import Annotated, Literal
 from decimal import Decimal
 
-from math import ceil
-
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Query
 
 from app.schemas.inventory import StockUpdate
@@ -78,7 +76,7 @@ def get_products(
         sort_order=sort_order,
     )
 
-    pages = ceil(total / page_size) if total > 0 else 0
+    pages = (total + page_size - 1) // page_size if total > 0 else 0
 
     return PaginatedResponse(
         items=products,

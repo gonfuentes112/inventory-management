@@ -115,11 +115,15 @@ class OrderService:
             user_id=current_user_id,
         )
 
-    def get_orders(
+    def get_orders_paginated(
         self,
         *,
         current_user_id: int,
-    ) -> list[Order]:
-        return self.repository.get_all_by_user(
+        page: int,
+        page_size: int,
+    ) -> tuple[list[Order], int]:
+        return self.repository.get_paginated_by_user(
             user_id=current_user_id,
+            page=page,
+            page_size=page_size,
         )

@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from app.api.dependencies import CurrentUser, get_order_service
 from app.schemas.order import OrderCreate, OrderResponse
+from app.schemas.pagination import PaginatedResponse
 from app.services.order import OrderService
 
 router = APIRouter(
@@ -66,12 +67,26 @@ def get_order(
 
 @router.get(
     "",
-    response_model=list[OrderResponse],
+    response_model=PaginatedResponse[OrderResponse],
 )
 def get_orders(
     service: OrderServiceDependency,
     current_user: CurrentUser,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=100),
 ):
-    return service.get_orders(
+    orders, total = service.get_orders_paginated(
         current_user_id=current_user.id,
+        page=page,
+        page_size=page_size,
+    )
+
+    pages = (total + page_size - 1) // page_size if total > 0 else 0
+
+    return PaginatedResponse(
+        items=orders,
+        total=total,
+        page=page,
+        page_size=page_size,
+        pages=pages,
     )
