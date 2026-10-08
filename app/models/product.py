@@ -1,5 +1,5 @@
 from decimal import Decimal
-from sqlalchemy import ForeignKey, Numeric, String, Text, CheckConstraint
+from sqlalchemy import ForeignKey, Numeric, String, Text, CheckConstraint, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -16,6 +16,10 @@ class Product(Base):
         CheckConstraint(
             "quantity >= 0",
             name="ck_products_quantity_non_negative",
+        ),
+        Index(
+            "ix_products_category_id",
+            "category_id",
         ),
     )
 

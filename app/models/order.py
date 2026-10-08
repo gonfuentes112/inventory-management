@@ -2,7 +2,7 @@ from datetime import datetime, UTC
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.database import Base
@@ -14,6 +14,15 @@ if TYPE_CHECKING:
 
 class Order(Base):
     __tablename__ = "orders"
+
+    __table_args__ = (
+        Index(
+            "ix_orders_user_created_id",
+            "user_id",
+            "created_at",
+            "id",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
@@ -53,6 +62,12 @@ class Order(Base):
 class OrderItem(Base):
     __tablename__ = "order_items"
 
+    __table_args__ = (
+        Index(
+            "ix_order_items_order_id",
+            "order_id",
+        ),
+    )
     id: Mapped[int] = mapped_column(primary_key=True)
 
     order_id: Mapped[int] = mapped_column(
