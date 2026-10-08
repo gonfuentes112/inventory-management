@@ -1,4 +1,6 @@
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, HTTPException
 from sqlalchemy import text
 
 from app.core.config import settings
@@ -8,6 +10,8 @@ from app.api.products import router as product_router
 from app.api.category import router as category_router
 from app.api.users import router as users_router
 from app.api.orders import router as orders_router
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title=settings.app_name)
 
@@ -24,7 +28,14 @@ def root():
 
 @app.get("/health")
 def health():
-    with engine.connect() as connection:
-        connection.execute(text("SELECT 1"))
+    try:
+        with engine.connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except Exception:
+        logger.exception("Health check failed: database unavailable")
+        raise HTTPException(
+            status_code=503,
+            detail="Database unavailable",
+        )
 
     return {"status": "ok"}

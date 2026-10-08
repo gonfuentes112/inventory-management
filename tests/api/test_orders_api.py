@@ -1,7 +1,9 @@
+from decimal import Decimal
 from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from fastapi.testclient import TestClient
 
+from app.models.product import Product
 from app.models.category import Category
 from app.models.user import User
 
@@ -53,6 +55,60 @@ def create_order(
     assert response.status_code == 201
 
     return response.json()
+
+
+def test_create_order(
+    authenticated_client: TestClient,
+    db_session: Session,
+    test_data: dict[str, User | Category],
+) -> None:
+    category = test_data["category"]
+    user = test_data["user"]
+
+    product = Product(
+        name="Order Product",
+        description="Product for order test",
+        price=Decimal("25.00"),
+        quantity=10,
+        owner_id=user.id,
+        category_id=category.id,
+    )
+
+    db_session.add(product)
+    db_session.commit()
+    db_session.refresh(product)
+
+    response = authenticated_client.post(
+        "/orders",
+        json={
+            "items": [
+                {
+                    "product_id": product.id,
+                    "quantity": 2,
+                }
+            ]
+        },
+    )
+
+    assert response.status_code == 201
+
+    data = response.json()
+
+    assert data["user_id"] == user.id
+    assert data["status"] == "pending"
+    assert data["total"] == "50.00"
+    assert len(data["items"]) == 1
+    assert data["items"][0]["product_id"] == product.id
+    assert data["items"][0]["quantity"] == 2
+    assert data["items"][0]["unit_price"] == "25.00"
+    assert data["items"][0]["subtotal"] == "50.00"
+
+    db_session.expire_all()
+
+    updated_product = db_session.get(Product, product.id)
+
+    assert updated_product is not None
+    assert updated_product.quantity == 8
 
 
 def test_get_orders_pagination(
