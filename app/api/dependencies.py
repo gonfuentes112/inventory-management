@@ -7,6 +7,7 @@ from app.db.database import get_db
 from app.services.product import ProductService
 from app.services.category import CategoryService
 from app.services.user import UserService
+from app.services.order import OrderService
 
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
@@ -86,3 +87,9 @@ AdminUser = Annotated[
     User,
     Depends(require_role(UserRole.ADMIN)),
 ]
+
+
+def get_order_service(
+    db: Annotated[Session, Depends(get_db)],
+) -> OrderService:
+    return OrderService(db)

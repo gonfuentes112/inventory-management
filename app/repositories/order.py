@@ -4,22 +4,23 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.order import Order, OrderItem
+from app.models.product import Product
 
 
 class OrderRepository:
-    def __init__(self, session: Session):
+    def __init__(self, session: Session) -> None:
         self.session = session
 
     def create_order(
         self,
         user_id: int,
+        status: str,
         total: Decimal,
-        status: str = "pending",
     ) -> Order:
         order = Order(
             user_id=user_id,
-            total=total,
             status=status,
+            total=total,
         )
         self.session.add(order)
         self.session.flush()
@@ -44,20 +45,20 @@ class OrderRepository:
         self.session.flush()
         return item
 
-    def get_by_id(self, order_id: int) -> Order | None:
-        statement = (
-            select(Order)
-            .where(Order.id == order_id)
-        )
+    def get_product_for_update(
+        self,
+        product_id: int,
+    ) -> Product | None:
+        statement = select(Product).where(Product.id == product_id).with_for_update()
         return self.session.scalar(statement)
 
-    def get_by_user(
+    def get_by_id(
         self,
+        order_id: int,
         user_id: int,
-    ) -> list[Order]:
-        statement = (
-            select(Order)
-            .where(Order.user_id == user_id)
-            .order_by(Order.id.desc())
+    ) -> Order | None:
+        statement = select(Order).where(
+            Order.id == order_id,
+            Order.user_id == user_id,
         )
-        return list(self.session.scalars(statement).all())
+        return self.session.scalar(statement)
