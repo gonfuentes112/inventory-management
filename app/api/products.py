@@ -7,7 +7,7 @@ from app.schemas.inventory import StockUpdate
 from app.schemas.product import ProductCreate, ProductResponse, ProductUpdate
 from app.schemas.pagination import PaginatedResponse
 
-from app.services.product import ProductService
+from app.services.product import ProductService, ProductInUseError
 
 from app.api.dependencies import CurrentUser, get_product_service, AdminUser
 
@@ -224,7 +224,13 @@ def update_product(
 def delete_product(
     product_id: int, service: ProductServiceDependency, current_user: AdminUser
 ):
-    deleted = service.delete_product(product_id)
+    try:
+        deleted = service.delete_product(product_id)
+    except ProductInUseError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
 
     if not deleted:
         raise HTTPException(

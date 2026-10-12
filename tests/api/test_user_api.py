@@ -58,8 +58,8 @@ def test_create_duplicate_user(client: TestClient):
     assert second_response.json()["detail"] == "Username already exists"
 
 
-def test_get_users(authenticated_client: TestClient):
-    authenticated_client.post(
+def test_get_users(admin_client: TestClient):
+    admin_client.post(
         "/users",
         json={
             "username": "user1",
@@ -67,7 +67,7 @@ def test_get_users(authenticated_client: TestClient):
             "password": hash_password("testpassword123"),
         },
     )
-    authenticated_client.post(
+    admin_client.post(
         "/users",
         json={
             "username": "user2",
@@ -76,20 +76,20 @@ def test_get_users(authenticated_client: TestClient):
         },
     )
 
-    response = authenticated_client.get("/users")
+    response = admin_client.get("/users")
 
     assert response.status_code == 200
 
     data = response.json()
 
-    assert len(data) == 3  # counts authenticated testuser as well
-    assert data[0]["username"] == "testuser"
+    assert len(data) == 3  # counts authenticated admin user as well
+    assert data[0]["username"] == "admin"
     assert data[1]["username"] == "user1"
     assert data[2]["username"] == "user2"
 
 
-def test_get_user(authenticated_client: TestClient):
-    create_response = authenticated_client.post(
+def test_get_user(admin_client: TestClient):
+    create_response = admin_client.post(
         "/users",
         json={
             "username": "newuser",
@@ -100,7 +100,7 @@ def test_get_user(authenticated_client: TestClient):
 
     user_id = create_response.json()["id"]
 
-    response = authenticated_client.get(f"/users/{user_id}")
+    response = admin_client.get(f"/users/{user_id}")
 
     assert response.status_code == 200
 

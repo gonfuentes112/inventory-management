@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from app.api.dependencies import get_user_service, CurrentUser
+from app.api.dependencies import AdminUser, CurrentUser, get_user_service
 from app.schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse
 from app.services.user import UserService
 
@@ -37,7 +37,7 @@ def create_user(
     "",
     response_model=list[UserResponse],
 )
-def get_users(service: UserServiceDependency, current_user: CurrentUser):
+def get_users(service: UserServiceDependency, current_user: AdminUser):
     return service.get_users()
 
 
@@ -71,6 +71,12 @@ def login(
     response_model=UserResponse,
 )
 def get_user(user_id: int, service: UserServiceDependency, current_user: CurrentUser):
+    if current_user.id != user_id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
     user = service.get_user(user_id)
 
     if user is None:

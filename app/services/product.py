@@ -1,4 +1,5 @@
 from decimal import Decimal
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.repositories.product import ProductRepository
@@ -11,6 +12,10 @@ from app.repositories.user import UserRepository
 from app.repositories.category import CategoryRepository
 
 from app.cache.product import cache_product, get_cached_product, delete_cached_product
+
+
+class ProductInUseError(ValueError):
+    """Raised when a product cannot be deleted because other rows reference it."""
 
 
 class ProductService:
@@ -134,8 +139,14 @@ class ProductService:
         if product is None:
             return False
 
-        self.repository.delete(product)
-        self.session.commit()
+        try:
+            self.repository.delete(product)
+            self.session.commit()
+        except IntegrityError as exc:
+            self.session.rollback()
+            raise ProductInUseError(
+                "Product is referenced by existing orders and cannot be deleted"
+            ) from exc
 
         delete_cached_product(product_id)
 
