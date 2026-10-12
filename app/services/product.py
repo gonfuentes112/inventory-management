@@ -13,6 +13,8 @@ from app.repositories.category import CategoryRepository
 
 from app.cache.product import cache_product, get_cached_product, delete_cached_product
 
+from app.core.exceptions import InsufficientStockError
+
 
 class ProductInUseError(ValueError):
     """Raised when a product cannot be deleted because other rows reference it."""

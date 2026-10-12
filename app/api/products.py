@@ -11,6 +11,7 @@ from app.services.product import ProductService, ProductInUseError
 
 from app.api.dependencies import CurrentUser, get_product_service, AdminUser
 
+from app.core.exceptions import InsufficientStockError
 
 from app.tasks.product import log_product_created
 
@@ -146,6 +147,12 @@ def remove_stock(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(exc),
         ) from exc
+    except InsufficientStockError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(exc),
+        ) from exc
+
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
