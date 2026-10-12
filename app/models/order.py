@@ -38,7 +38,7 @@ class Order(Base):
     )
 
     total: Mapped[Decimal] = mapped_column(
-        Numeric(100, 2),
+        Numeric(12, 2),
         nullable=False,
         default=Decimal("0.00"),
     )
@@ -85,12 +85,12 @@ class OrderItem(Base):
     )
 
     unit_price: Mapped[Decimal] = mapped_column(
-        Numeric(100, 2),
+        Numeric(12, 2),
         nullable=False,
     )
 
     subtotal: Mapped[Decimal] = mapped_column(
-        Numeric(100, 2),
+        Numeric(12, 2),
         nullable=False,
     )
 

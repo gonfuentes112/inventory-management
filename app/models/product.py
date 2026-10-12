@@ -28,7 +28,7 @@ class Product(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     price: Mapped[Decimal] = mapped_column(
-        Numeric(100, 2), nullable=False, default=Decimal("0.00")
+        Numeric(12, 2), nullable=False, default=Decimal("0.00")
     )
 
     owner_id: Mapped[int] = mapped_column(
