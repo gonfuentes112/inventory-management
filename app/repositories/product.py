@@ -13,6 +13,15 @@ class ProductRepository:
         statement = select(Product).where(Product.id == product_id)
         return self.session.scalar(statement)
 
+    def get_by_id_for_update(self, product_id: int) -> Product | None:
+        statement = (
+            select(Product)
+            .where(Product.id == product_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        return self.session.scalar(statement)
+
     def get_all(self) -> list[Product]:
         statement = select(Product)
         return list(self.session.scalars(statement).all())

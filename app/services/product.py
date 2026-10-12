@@ -91,27 +91,34 @@ class ProductService:
         current_user_id: int,
         is_admin: bool,
     ) -> Product | None:
-        product = self.repository.get_by_id(product_id)
+        try:
+            product = self.repository.get_by_id_for_update(product_id)
 
-        if product is None:
-            return None
+            if product is None:
+                self.session.rollback()
+                return None
 
-        if product.owner_id != current_user_id and not is_admin:
-            raise PermissionError("Not authorized to update this product")
+            if product.owner_id != current_user_id and not is_admin:
+                raise PermissionError("Not authorized to update this product")
 
-        if data.category_id is not None:
-            if self.category_repository.get_by_id(data.category_id) is None:
-                raise ValueError("Category not found")
+            if data.category_id is not None:
+                if self.category_repository.get_by_id(data.category_id) is None:
+                    raise ValueError("Category not found")
 
-        self.repository.update(
-            product,
-            name=data.name,
-            description=data.description,
-            price=data.price,
-            quantity=data.quantity,
-            category_id=data.category_id,
-        )
-        self.session.commit()
+            self.repository.update(
+                product,
+                name=data.name,
+                description=data.description,
+                price=data.price,
+                quantity=data.quantity,
+                category_id=data.category_id,
+            )
+            self.session.commit()
+        except Exception:
+            # Rolling back also releases the row lock.
+            self.session.rollback()
+            raise
+
         self.session.refresh(product)
 
         delete_cached_product(product_id)
@@ -142,20 +149,26 @@ class ProductService:
         current_user_id: int,
         is_admin: bool,
     ) -> Product | None:
-        product = self.repository.get_by_id(product_id)
+        try:
+            product = self.repository.get_by_id_for_update(product_id)
 
-        if product is None:
-            return None
+            if product is None:
+                self.session.rollback()
+                return None
 
-        if product.owner_id != current_user_id and not is_admin:
-            raise PermissionError("Not authorized to modify this product")
+            if product.owner_id != current_user_id and not is_admin:
+                raise PermissionError("Not authorized to modify this product")
 
-        if quantity <= 0:
-            raise ValueError("Quantity must be greater than 0")
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than 0")
 
-        product.quantity += quantity
+            product.quantity += quantity
 
-        self.session.commit()
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise
+
         self.session.refresh(product)
 
         delete_cached_product(product_id)
@@ -170,22 +183,29 @@ class ProductService:
         current_user_id: int,
         is_admin: bool,
     ) -> Product | None:
-        product = self.repository.get_by_id(product_id)
+        try:
+            product = self.repository.get_by_id_for_update(product_id)
 
-        if product is None:
-            return None
-        if product.owner_id != current_user_id and not is_admin:
-            raise PermissionError("Not authorized to modify this product")
+            if product is None:
+                self.session.rollback()
+                return None
 
-        if quantity <= 0:
-            raise ValueError("Quantity must be greater than 0")
+            if product.owner_id != current_user_id and not is_admin:
+                raise PermissionError("Not authorized to modify this product")
 
-        if product.quantity < quantity:
-            raise ValueError("Insufficient stock")
+            if quantity <= 0:
+                raise ValueError("Quantity must be greater than 0")
 
-        product.quantity -= quantity
+            if product.quantity < quantity:
+                raise ValueError("Insufficient stock")
 
-        self.session.commit()
+            product.quantity -= quantity
+
+            self.session.commit()
+        except Exception:
+            self.session.rollback()
+            raise
+
         self.session.refresh(product)
 
         delete_cached_product(product_id)
