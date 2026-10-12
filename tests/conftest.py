@@ -25,6 +25,10 @@ from app.core.security import hash_password
 
 from app.db.redis import redis_client
 
+from app.core.rate_limit import login_rate_limit
+
+app.dependency_overrides[login_rate_limit] = lambda: None
+
 
 @pytest.fixture(autouse=True)
 def clear_redis() -> None:

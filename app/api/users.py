@@ -6,6 +6,8 @@ from app.api.dependencies import AdminUser, CurrentUser, get_user_service
 from app.schemas.user import UserCreate, UserResponse, UserLogin, TokenResponse
 from app.services.user import UserService
 
+from app.core.rate_limit import login_rate_limit
+
 router = APIRouter(prefix="/users", tags=["users"])
 
 
@@ -19,6 +21,7 @@ UserServiceDependency = Annotated[
     "",
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(login_rate_limit)],
 )
 def create_user(
     data: UserCreate,

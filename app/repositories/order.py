@@ -49,7 +49,13 @@ class OrderRepository:
         self,
         product_id: int,
     ) -> Product | None:
-        statement = select(Product).where(Product.id == product_id).with_for_update()
+
+        statement = (
+            select(Product)
+            .where(Product.id == product_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
         return self.session.scalar(statement)
 
     def get_by_id(
@@ -64,6 +70,23 @@ class OrderRepository:
                 Order.id == order_id,
                 Order.user_id == user_id,
             )
+        )
+        return self.session.scalar(statement)
+
+    def get_by_id_for_update(
+        self,
+        order_id: int,
+        user_id: int,
+    ) -> Order | None:
+        statement = (
+            select(Order)
+            .options(selectinload(Order.items))
+            .where(
+                Order.id == order_id,
+                Order.user_id == user_id,
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
         return self.session.scalar(statement)
 
