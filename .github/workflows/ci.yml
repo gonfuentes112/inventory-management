@@ -65,7 +65,7 @@ jobs:
 
       - name: Build Docker image
         run: docker build -t inventory-management:ci .
-        
+
   deploy:
     needs: test
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
@@ -100,6 +100,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
           docker build \
+          --provenance=false \
             -t "$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" \
             .
 
