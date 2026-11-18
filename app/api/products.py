@@ -77,6 +77,7 @@ def get_products(
 
     if not search:
         search = None
+
     products, total = service.get_products_paginated(
         page=page,
         page_size=page_size,

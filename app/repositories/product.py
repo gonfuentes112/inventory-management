@@ -36,7 +36,7 @@ class ProductRepository:
         max_price: Decimal | None = None,
         sort_by: str = "id",
         sort_order: str = "asc",
-        search: str | None,
+        search: str | None = None,
     ) -> tuple[list[Product], int]:
         filters = []
 
