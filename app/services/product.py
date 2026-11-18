@@ -79,6 +79,7 @@ class ProductService:
         max_price: Decimal | None = None,
         sort_by: str = "id",
         sort_order: str = "asc",
+        search: str | None = None,
     ) -> tuple[list[Product], int]:
         return self.repository.get_paginated(
             page=page,
@@ -88,6 +89,7 @@ class ProductService:
             max_price=max_price,
             sort_by=sort_by,
             sort_order=sort_order,
+            search=search,
         )
 
     def update_product(

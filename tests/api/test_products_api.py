@@ -871,3 +871,197 @@ def test_get_products_filter_sort_and_paginate(
 
     assert data["items"][0]["name"] == "Product 3"
     assert data["items"][1]["name"] == "Product 2"
+
+
+def test_get_products_search_is_case_insensitive(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name in ["Laptop", "Keyboard"]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": 100.00,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get(
+        "/products",
+        params={"search": "lap"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["name"] == "Laptop"
+
+
+def test_get_products_search_total_reflects_filter(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name in ["Laptop", "Laptop Stand", "Keyboard"]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": 100.00,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get(
+        "/products",
+        params={
+            "search": "lap",
+            "page_size": 1,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 2
+    assert data["page"] == 1
+    assert data["page_size"] == 1
+    assert data["pages"] == 2
+    assert len(data["items"]) == 1
+
+
+def test_get_products_search_combined_with_price_filter(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name, price in [
+        ("Laptop", 1200.00),
+        ("Laptop Case", 50.00),
+        ("Keyboard", 150.00),
+    ]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": price,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get(
+        "/products",
+        params={
+            "search": "lap",
+            "min_price": 100,
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["name"] == "Laptop"
+
+
+def test_get_products_search_returns_empty_results_when_no_match(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    authenticated_client.post(
+        "/products",
+        json={
+            "name": "Laptop",
+            "description": "Development laptop",
+            "price": 1200.00,
+            "quantity": 10,
+            "category_id": test_data["category"].id,
+        },
+    )
+
+    response = authenticated_client.get(
+        "/products",
+        params={"search": "nonexistentproduct"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["items"] == []
+    assert data["total"] == 0
+    assert data["pages"] == 0
+
+
+def test_get_products_search_treats_percent_as_literal(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name in [
+        "50% Off Cable",
+        "50 Off Cable",
+        "Cable",
+    ]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": 25.00,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get(
+        "/products",
+        params={"search": "50%"},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 1
+    assert len(data["items"]) == 1
+    assert data["items"][0]["name"] == "50% Off Cable"
+
+
+def test_get_products_search_ignores_whitespace(
+    authenticated_client: TestClient,
+    test_data: dict[str, User | Category],
+):
+    for name in ["Laptop", "Keyboard"]:
+        authenticated_client.post(
+            "/products",
+            json={
+                "name": name,
+                "description": name,
+                "price": 100.00,
+                "quantity": 10,
+                "category_id": test_data["category"].id,
+            },
+        )
+
+    response = authenticated_client.get(
+        "/products",
+        params={"search": "   "},
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["total"] == 2
+    assert len(data["items"]) == 2

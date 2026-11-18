@@ -66,7 +66,17 @@ def get_products(
     max_price: Decimal | None = Query(None, ge=0),
     sort_by: SortBy = Query("id"),
     sort_order: SortOrder = Query("asc"),
+    search: str | None = Query(
+        None,
+        min_length=1,
+        max_length=100,
+    ),
 ):
+    if search is not None:
+        search = search.strip()
+
+    if not search:
+        search = None
     products, total = service.get_products_paginated(
         page=page,
         page_size=page_size,
@@ -75,6 +85,7 @@ def get_products(
         max_price=max_price,
         sort_by=sort_by,
         sort_order=sort_order,
+        search=search,
     )
 
     pages = (total + page_size - 1) // page_size if total > 0 else 0

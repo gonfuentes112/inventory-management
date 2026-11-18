@@ -36,6 +36,7 @@ class ProductRepository:
         max_price: Decimal | None = None,
         sort_by: str = "id",
         sort_order: str = "asc",
+        search: str | None,
     ) -> tuple[list[Product], int]:
         filters = []
 
@@ -47,6 +48,9 @@ class ProductRepository:
 
         if max_price is not None:
             filters.append(Product.price <= max_price)
+
+        if search is not None:
+            filters.append(Product.name.icontains(search, autoescape=True))
 
         total_statement = select(func.count()).select_from(Product).where(*filters)
 
